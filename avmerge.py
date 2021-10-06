@@ -3,7 +3,7 @@
 """
 Script: avmerge.py
 Author: Sergey "Qiwichupa" Pavlov
-Version: 2.01
+Version: 2.03
 
 This script was created for merging stream parts from twitch.tv service (but should be versatile).
 Sometimes it is very simple task, but sometimes resizing and reencoding is needed.
@@ -16,6 +16,10 @@ In the end I merge temporary files into one 'out.mp4' with 'MP4Box' from GPAC pa
 Thanks to Kevin Locke for his mighty scale options: http://kevinlocke.name/bits/2012/08/25/letterboxing-with-ffmpeg-avconv-for-mobile/
 
 ChangeLog:
+=== 2.03 ===
+* First parameter for MP4Box (in 'mp4boxmerge' function, outside the cycle) was changed from '-add' to '-cat'. This part of code must be rewritten in the future.
+=== 2.02 ===
+* minor fix
 === 2.01 ===
 * minor fix
 === 2.0 ===
@@ -37,21 +41,20 @@ def avconvert(avconvPath, sourceFile, maxWidth, maxHeight, frameRate):
     # import os
     # import subprocess
 
-    gop = frameRate
     outFile = "tmp_" + sourceFile + ".mp4"
-    scaleOptions = 'scale=iw*sar*min(' + maxWidth + '/(iw*sar)\,' + maxHeight + '/ih):ih*min(' + maxWidth + '/(iw*sar)\,' + maxHeight + '/ih),pad=' + maxWidth + ':' + maxHeight + ':(ow-iw)/2:(oh-ih)/2'
+    scaleOptions = 'scale=iw*sar*min({maxWidth}/(iw*sar)\,{maxHeight}/ih):ih*min({maxWidth}/(iw*sar)\,{maxHeight}/ih),pad={maxWidth}:{maxHeight}:(ow-iw)/2:(oh-ih)/2'.format(maxWidth=maxWidth, maxHeight=maxHeight)
     convertCmdString = [avconvPath,
                         '-i', sourceFile,
                         '-map', '0',
                         '-vf', scaleOptions,
-                        '-c:a', 'libmp3lame',  # libvo_aacenc, libmp3lame
+                        '-c:a', 'libmp3lame',  # aac, libmp3lame
                         '-ar', '48000',
-                        '-ab', '128k',
+#                        '-ab', '128k',
                         #                  '-async', '30',
                         '-c:v', 'libx264',
                         '-r', frameRate,
                         '-bf', '2',
-                        '-g', gop,
+                        '-g', frameRate,
                         '-profile:v', 'high',
                         '-preset', 'fast',
                         '-level', '42',
@@ -71,14 +74,19 @@ def mp4boxmerge(MP4BoxCmd, inFiles, outFile):
     if len(inFiles) > 1:
         MP4BoxCmdString = []
         MP4BoxCmdString.append(MP4BoxCmd)
-        MP4BoxCmdString.append('-cat')
-        MP4BoxCmdString.append(inFiles[0])
-        for i in range(1, len(inFiles)):
+        for i in range(0, len(inFiles)):
             MP4BoxCmdString.append('-cat')
             MP4BoxCmdString.append(inFiles[i])
+        MP4BoxCmdString.append('-out')
         MP4BoxCmdString.append(outFile)
-        output = subprocess.Popen(MP4BoxCmdString).communicate()
-        print(output)
+        try:
+            p = subprocess.run(MP4BoxCmdString, check=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
+            print(p.stdout)
+        except:
+            print('removing first -cat')
+            MP4BoxCmdString.remove('-cat')
+            p = subprocess.run(MP4BoxCmdString, check=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
+            print(p.stdout)
 
 
 if __name__ == '__main__':
@@ -94,8 +102,8 @@ if __name__ == '__main__':
     # Tool path
     # (Use absolute path in windows (for example: 'C:\Program Files\GPAC\MP4Box')
     # if MP4Box.exe and avconv.exe not in PATH-folders)
-    MP4BoxCmd = 'C:\Program Files\GPAC\MP4Box'
-    avconvCmd = 'avconv'
+    MP4BoxCmd = 'MP4Box'
+    avconvCmd = 'ffmpeg'
     # default extention of source files
     fileExt = '.flv'
 
