@@ -10,8 +10,8 @@ Ok, to the code. First of all this script was written for executing in current d
 I use 'os.listdir' for searching files by extension ('fileExt' variable).
 Then I use 'ffmpeg' for scaling to 'maxWidth' and 'maxHeight', adding black borders if it's needed,
 and reencoding video to mp4 container with 'libx264' and 'mp3' codecs.
-In the end I merge temporary files into one 'out.mp4' with 'MP4Box' from GPAC package.
 Thanks to Kevin Locke for his mighty scale options: http://kevinlocke.name/bits/2012/08/25/letterboxing-with-ffmpeg-avconv-for-mobile/
+
 ChangeLog:
 === 2.04 ===
 MP4Box replaced by ffmpeg
