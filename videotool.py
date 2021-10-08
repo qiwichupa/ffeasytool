@@ -7,10 +7,8 @@ import os
 import subprocess
 
 
-
-
 def resize_single_video():
-    infile = args.inpt
+    infile = args.name
     outfile = os.path.splitext(infile)[0] + '_resized.mp4'
     for i in range(len(ffmpeg.probe(infile)['streams'])):
         if ffmpeg.probe(infile)['streams'][i]['codec_type'] == 'video':
@@ -24,8 +22,8 @@ def resize_single_video():
     video = input.video
 
     if args.s != 1:
-        newwidth = int(float(width*args.s))
-        newheight = int(float(height*args.s))
+        newwidth = int(float(width * args.s))
+        newheight = int(float(height * args.s))
         video = video.filter('scale', width=newwidth, height=newheight)
     elif args.r:
         width, height = args.r.split('x')
@@ -33,8 +31,9 @@ def resize_single_video():
     out = ffmpeg.output(audio, video, outfile, qscale=0)
     out.run()
 
+
 def cut_single_video():
-    infile = args.inpt
+    infile = args.name
     outfile = os.path.splitext(infile)[0] + '_cut.mp4'
     for i in range(len(ffmpeg.probe(infile)['streams'])):
         if ffmpeg.probe(infile)['streams'][i]['codec_type'] == 'video':
@@ -68,8 +67,9 @@ def cut_single_video():
     out = ffmpeg.output(audio, video, outfile, qscale=0)
     out.run()
 
+
 def convert_to_gif():
-    infile = args.inpt
+    infile = args.name
     outfile = os.path.splitext(infile)[0] + '.gif'
     for i in range(len(ffmpeg.probe(infile)['streams'])):
         if ffmpeg.probe(infile)['streams'][i]['codec_type'] == 'video':
@@ -86,9 +86,10 @@ def convert_to_gif():
     out = ffmpeg.output(video, outfile, loop=0)
     out.run()
 
+
 def convert_to_webm():
-    ext = args.inpt
-    for f in  os.listdir('.'):
+    ext = args.name
+    for f in os.listdir('.'):
         if f.lower().endswith(ext.lower()):
             outfile = os.path.splitext(f)[0] + '_converted.webm'
             for i in range(len(ffmpeg.probe(f)['streams'])):
@@ -110,9 +111,10 @@ def convert_to_webm():
                     out = ffmpeg.output(video, outfile, qscale=0)
                 out.run()
 
+
 def convert_to_x264():
-    ext = args.inpt
-    for f in  os.listdir('.'):
+    ext = args.name
+    for f in os.listdir('.'):
         if f.lower().endswith(ext.lower()):
             outfile = os.path.splitext(f)[0] + '_converted.mp4'
             for i in range(len(ffmpeg.probe(f)['streams'])):
@@ -133,6 +135,7 @@ def convert_to_x264():
                 else:
                     out = ffmpeg.output(video, outfile, qscale=0)
                 out.run()
+
 
 def avmerge(files, maxWidth=1920, maxHeight=1080, frameRate=30, ffmpegcmd='ffmpeg'):
     frameRate = str(frameRate)
@@ -172,8 +175,9 @@ def avmerge(files, maxWidth=1920, maxHeight=1080, frameRate=30, ffmpegcmd='ffmpe
     output = subprocess.Popen(convertCmdString).communicate()
     print(output)
 
+
 def convert_to_mp3():
-    infile = args.inpt
+    infile = args.name
     outfile = os.path.splitext(infile)[0] + '.mp3'
 
     input = ffmpeg.input(infile)
@@ -188,34 +192,33 @@ if __name__ == '__main__':
 
     actions = parser.add_argument_group('MAIN ACTIONS')
     actions.add_argument('--merge', action='store_true', help='merge video files')
-    actions.add_argument('--resize', action='store_true', help='resize single video')
-    actions.add_argument('--cut', action='store_true', help='cut single video. Use -a and(or) -b ')
-    actions.add_argument('--togif', action='store_true', help='convert single video to gif')
-    actions.add_argument('--to264', action='store_true', help='convert all files with specified extension to mp4/h264. H264-video will be skipped')
-    actions.add_argument('--towebm', action='store_true', help='convert single video to webm')
-    actions.add_argument('--tomp3', action='store_true', help='extract audio to mp3')
-
     mergeParams = parser.add_argument_group('--merge options:')
-    mergeParams.add_argument('-f', type=str,  default=None, metavar='F',  help='video format string: 1024x768@30')
+    mergeParams.add_argument('-f', type=str, default=None, metavar='F', help='video format string: 1024x768@30')
 
+    actions.add_argument('--resize', action='store_true', help='resize single video')
     resizeParams = parser.add_argument_group('--resize options: -s OR -r ')
-    resizeParams.add_argument('-s', type=float,  default=1, metavar='S', help='scale multiplier: 0.5, 2, 3.4, etc')
-    resizeParams.add_argument('-r', type=str,  default=None, metavar='R',  help='set resolution, ex.: 1280x720')
+    resizeParams.add_argument('-s', type=float, default=1, metavar='S', help='scale multiplier: 0.5, 2, 3.4, etc')
+    resizeParams.add_argument('-r', type=str, default=None, metavar='R', help='set resolution, ex.: 1280x720')
 
+    actions.add_argument('--cut', action='store_true', help='cut single video. Use -a and(or) -b ')
     cutParams = parser.add_argument_group('--cut options')
     cutParams.add_argument('-a', type=str, default='-1', help='start point in [HH:][MM:]SS[.m...] format')
     cutParams.add_argument('-b', type=str, default='-1', help='end point  in [HH:][MM:]SS[.m...] format')
 
+    actions.add_argument('--togif', action='store_true', help='convert single video to gif')
     togifParams = parser.add_argument_group('--togif options')
     togifParams.add_argument('-x', type=int, default=10, metavar='X', help='fps for gif (default: 10)')
 
+    actions.add_argument('--to264', action='store_true', help='convert all files with specified extension to mp4/h264. H264-video will be skipped')
     to264Params = parser.add_argument_group('--to264 options')
     to264Params.add_argument('--force', action='store_true', help='reencode h264 video')
 
-    parser.add_argument('inpt', type=str, help='file or extension to operate')
+    actions.add_argument('--towebm', action='store_true', help='convert single video to webm')
+    actions.add_argument('--tomp3', action='store_true', help='extract audio to mp3')
+
+    parser.add_argument('name', type=str, help='file or extension to operate')
 
     args = parser.parse_args()
-
 
     if args.resize:
         resize_single_video()
@@ -232,7 +235,7 @@ if __name__ == '__main__':
     elif args.merge:
         files = []
         for file in sorted(os.listdir('.')):
-            if not file.endswith(args.inpt):
+            if not file.endswith(args.name):
                 continue
             files.append(file)
         resolution, *fps = args.f.split('@')
