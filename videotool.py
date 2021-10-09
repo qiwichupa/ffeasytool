@@ -85,51 +85,25 @@ class VideoTool():
         cmd = [self.bins['ffmpeg']
             , '-i'
             , infile
-            , '-vf'
-            , 'scale={}:{}, setsar=1:1'.format(newwidth, newheight)
-            , '-preset'
-            , 'slow'
-            , '-crf'
-            , '18'
+            , '-vf', 'scale={}:{}, setsar=1:1'.format(newwidth, newheight)
+            , '-preset', 'slow'
+            , '-crf', '18'
             , outfile]
-        output = subprocess.Popen(cmd).communicate()
-        print(output)
+        subprocess.Popen(cmd).communicate()
 
+    def cut_single_video(self, infile: str, startpoint='-1', endpoint='-1', outfile='outfile.mp4'):
+        if startpoint == '-1' and endpoint == '-1': return
 
-def cut_single_video():
-    infile = args.name
-    outfile = os.path.splitext(infile)[0] + '_cut.mp4'
-    for i in range(len(ffmpeg.probe(infile)['streams'])):
-        if ffmpeg.probe(infile)['streams'][i]['codec_type'] == 'video':
-            videoinfo = ffmpeg.probe(infile)['streams'][i]
-            break;
-    height = videoinfo['height']
-    width = videoinfo['width']
+        cmd = [self.bins['ffmpeg']
+            , '-i'
+            , infile]
+        if startpoint != '-1': cmd += ['-ss', startpoint]
+        if endpoint != '-1':   cmd += ['-to', endpoint]
 
-    startpoint = args.a
-    endpoint = args.b
-
-    input = ffmpeg.input(infile)
-    audio = input.audio
-    video = input.video
-
-    if startpoint == '-1' and endpoint == '-1':
-        print('use -a and(or) -b')
-        exit(0)
-    elif startpoint == '-1' and endpoint != '-1':
-        video = video.trim(end=endpoint)
-        audio = audio.filter_('atrim', end=endpoint)
-    elif startpoint != '-1' and endpoint == '-1':
-        video = video.trim(start=startpoint)
-        audio = audio.filter_('atrim', start=startpoint)
-    else:
-        video = video.trim(start=startpoint, end=endpoint)
-        audio = audio.filter_('atrim', start=startpoint, end=endpoint)
-    video = video.setpts('PTS-STARTPTS')
-    audio = audio.filter_('asetpts', 'PTS-STARTPTS')
-
-    out = ffmpeg.output(audio, video, outfile, qscale=0)
-    out.run()
+        cmd += ['-preset', 'slow'
+            , '-crf', '18'
+            , outfile]
+        subprocess.Popen(cmd).communicate()
 
 
 def convert_to_gif():
@@ -261,7 +235,12 @@ if __name__ == '__main__':
     elif args.towebm:
         convert_to_webm()
     elif args.cut:
-        cut_single_video()
+        infile = args.name
+        outfile = '{}_cut.mp4'.format(os.path.splitext(args.name)[0])
+        if args.a == -1 and args.b == -1:
+            print('use -a and(or) -b')
+        else:
+            videotool.cut_single_video(infile=infile, startpoint=args.a, endpoint=args.b, outfile=outfile)
     elif args.tomp3:
         convert_to_mp3()
     elif args.merge:
