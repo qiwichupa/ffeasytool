@@ -16,6 +16,8 @@ class VideoTool():
 
     def avmerge(self, files, maxWidth=1920, maxHeight=1080, frameRate=30, outfile='outfile.mp4'):
         frameRate = str(frameRate)
+        if int(maxWidth) % 2 != 0: maxWidth = int(maxWidth) + 1
+        if int(maxHeight) % 2 != 0: maxHeight = int(maxHeight) + 1
         maxWidth = str(maxWidth)
         maxHeight = str(maxHeight)
 
@@ -34,12 +36,9 @@ class VideoTool():
         filter = '{}{}{}'.format(filteropt1, filteropt2, filteropt3)
 
         convertCmdString = [self.bins['ffmpeg']] + cmdoptions + [
-            '-filter_complex'
-            , filter
-            , '-map'
-            , '[v]'
-            , '-map'
-            , '[a]'
+            '-filter_complex', filter
+            , '-map', '[v]'
+            , '-map', '[a]'
             , '-c:a', 'libmp3lame'
             , '-ar', '48000'
             , '-c:v', 'libx264'
@@ -57,29 +56,34 @@ class VideoTool():
     def resize_single_video(self, infile: str, scale=None, resolution=None, outfile='outfile.mp4'):
         if scale is None and resolution is None: return
 
-        scale = float(scale)
-
-        # find current resolution
-        cmd = [self.bins['ffprobe']
-            , '-v'
-            , 'error'
-            , '-select_streams'
-            , 'v:0'
-            , '-show_entries'
-            , 'stream=width,height'
-            , '-of'
-            , 'csv=s=x:p=0'
-            , infile]
-        out, err = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True).communicate()
-        width, height = out.split('x')
-        width = int(width)
-        height = int(height)
-
         if scale is not None:
+            scale = float(scale)
+
+            # find current resolution
+            cmd = [self.bins['ffprobe']
+                , '-v'
+                , 'error'
+                , '-select_streams'
+                , 'v:0'
+                , '-show_entries'
+                , 'stream=width,height'
+                , '-of'
+                , 'csv=s=x:p=0'
+                , infile]
+            out, err = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True).communicate()
+            width, height = out.split('x')
+            width = int(width)
+            height = int(height)
+
             newwidth = int(width * scale)
             newheight = int(height * scale)
         elif resolution is not None:
             newwidth, newheight = resolution.split('x')
+            newwidth = int(newwidth)
+            newheight = int(newheight)
+
+        if newwidth % 2 != 0: newwidth += 1
+        if newheight % 2 != 0: newheight += 1
 
         # convert resolution
         cmd = [self.bins['ffmpeg']
@@ -192,11 +196,11 @@ if __name__ == '__main__':
     actions = parser.add_argument_group('MAIN ACTIONS')
     actions.add_argument('--merge', action='store_true', help='merge video files')
     mergeParams = parser.add_argument_group('--merge options:')
-    mergeParams.add_argument('-f', type=str, default=None, metavar='F', help='video format string: 1024x768@30')
+    mergeParams.add_argument('-f', type=str, default=None, metavar='F', help='video format string: 1024x768[@30]')
 
     actions.add_argument('--resize', action='store_true', help='resize single video')
     resizeParams = parser.add_argument_group('--resize options: -s OR -r ')
-    resizeParams.add_argument('-s', type=float, default=1, metavar='S', help='scale multiplier: 0.5, 2, 3.4, etc')
+    resizeParams.add_argument('-m', type=float, default=1, metavar='M', help='scale multiplier: 0.5, 2, 3.4, etc')
     resizeParams.add_argument('-r', type=str, default=None, metavar='R', help='set resolution, ex.: 1280x720')
 
     actions.add_argument('--cut', action='store_true', help='cut single video. Use -a and(or) -b ')
@@ -223,8 +227,8 @@ if __name__ == '__main__':
     if args.resize:
         infile = args.name
         outfile = '{}_resized.mp4'.format(os.path.splitext(args.name)[0])
-        if args.s != 1:
-            videotool.resize_single_video(infile=infile, scale=args.s, outfile=outfile)
+        if args.m != 1:
+            videotool.resize_single_video(infile=infile, scale=args.m, outfile=outfile)
         elif args.r:
             videotool.resize_single_video(infile=infile, resolution=args.r, outfile=outfile)
         # resize_single_video()
@@ -244,6 +248,9 @@ if __name__ == '__main__':
     elif args.tomp3:
         convert_to_mp3()
     elif args.merge:
+        if args.f is None:
+            print('use -f to set resolution (-f 1280x720[@30])')
+            exit(1)
         files = []
         for file in sorted(os.listdir('.')):
             if not file.endswith(args.name):
