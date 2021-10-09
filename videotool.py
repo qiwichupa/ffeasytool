@@ -109,49 +109,37 @@ class VideoTool():
             , outfile]
         subprocess.Popen(cmd).communicate()
 
+    def convert_to_gif(self, infile, fps, outfile):
+        cmd = [self.bins['ffmpeg']
+            , '-i'
+            , infile
+            , '-vf', 'fps={},split[s0][s1];[s0]palettegen=stats_mode=single[p];[s1][p]paletteuse'.format(fps)
+            , '-loop', '0'
+            , outfile]
+        subprocess.Popen(cmd).communicate()
 
-def convert_to_gif():
-    infile = args.name
-    outfile = os.path.splitext(infile)[0] + '.gif'
-    for i in range(len(ffmpeg.probe(infile)['streams'])):
-        if ffmpeg.probe(infile)['streams'][i]['codec_type'] == 'video':
-            videoinfo = ffmpeg.probe(infile)['streams'][i]
-            break;
+    def convert_to_webm(self, infile, outfile):
 
-    height = videoinfo['height']
-    width = videoinfo['width']
+        # check video codec
+        cmd = [self.bins['ffprobe']
+            , '-v', 'error'
+            , '-select_streams', 'v:0'
+            , '-show_entries', 'stream=codec_name'
+            , '-of', 'default=noprint_wrappers=1:nokey=1'
+            , infile]
+        out, err = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True).communicate()
 
-    input = ffmpeg.input(infile)
-    video = input.video
-
-    video = video.filter('fps', args.x)
-    out = ffmpeg.output(video, outfile, loop=0)
-    out.run()
-
-
-def convert_to_webm():
-    ext = args.name
-    for f in os.listdir('.'):
-        if f.lower().endswith(ext.lower()):
-            outfile = os.path.splitext(f)[0] + '_converted.webm'
-            for i in range(len(ffmpeg.probe(f)['streams'])):
-                if ffmpeg.probe(f)['streams'][i]['codec_type'] == 'video':
-                    videoinfo = ffmpeg.probe(f)['streams'][i]
-                    break;
-            if videoinfo['codec_name'] != 'libvpx' or args.force:
-                input = ffmpeg.input(f)
-                video = input.video
-                audio = None
-                # searching audio
-                for i in range(len(ffmpeg.probe(f)['streams'])):
-                    if ffmpeg.probe(f)['streams'][i]['codec_type'] == 'audio':
-                        audio = input.audio
-                        break;
-                if audio is not None:
-                    out = ffmpeg.output(audio, video, outfile, qscale=0)
-                else:
-                    out = ffmpeg.output(video, outfile, qscale=0)
-                out.run()
+        if out.strip() == 'vp8':
+            print('"{}" is already webm, skipped.'.format(infile))
+            return
+        cmd = [self.bins['ffmpeg']
+            , '-i'
+            , infile
+            , '-c:v', 'libvpx'
+            , '-c:a', 'libvorbis'
+            , '-q:v', '10'
+            , outfile]
+        subprocess.Popen(cmd).communicate()
 
 
 def convert_to_x264():
@@ -196,12 +184,12 @@ if __name__ == '__main__':
     actions = parser.add_argument_group('MAIN ACTIONS')
     actions.add_argument('--merge', action='store_true', help='merge video files')
     mergeParams = parser.add_argument_group('--merge options:')
-    mergeParams.add_argument('-f', type=str, default=None, metavar='F', help='video format string: 1024x768[@30]')
+    mergeParams.add_argument('-f', type=str, default=None, metavar='F', help='video format string: 1280x720[@30]')
 
     actions.add_argument('--resize', action='store_true', help='resize single video')
     resizeParams = parser.add_argument_group('--resize options: -s OR -r ')
-    resizeParams.add_argument('-m', type=float, default=1, metavar='M', help='scale multiplier: 0.5, 2, 3.4, etc')
-    resizeParams.add_argument('-r', type=str, default=None, metavar='R', help='set resolution, ex.: 1280x720')
+    resizeParams.add_argument('-m', type=float, default=1, metavar='M', help='multiplier: 0.5, 2, 3.4, etc.')
+    resizeParams.add_argument('-r', type=str, default=None, metavar='R', help='resolution: 1280x720, etc.')
 
     actions.add_argument('--cut', action='store_true', help='cut single video. Use -a and(or) -b ')
     cutParams = parser.add_argument_group('--cut options')
@@ -233,11 +221,16 @@ if __name__ == '__main__':
             videotool.resize_single_video(infile=infile, resolution=args.r, outfile=outfile)
         # resize_single_video()
     elif args.togif:
-        convert_to_gif()
+        infile = args.name
+        outfile = '{}.gif'.format(os.path.splitext(args.name)[0])
+        fps = args.x
+        videotool.convert_to_gif(infile, fps, outfile)
     elif args.to264:
         convert_to_x264()
     elif args.towebm:
-        convert_to_webm()
+        infile = args.name
+        outfile = '{}.webm'.format(os.path.splitext(args.name)[0])
+        videotool.convert_to_webm(infile, outfile)
     elif args.cut:
         infile = args.name
         outfile = '{}_cut.mp4'.format(os.path.splitext(args.name)[0])
