@@ -7,29 +7,93 @@ import os
 import subprocess
 
 
-def resize_single_video():
-    infile = args.name
-    outfile = os.path.splitext(infile)[0] + '_resized.mp4'
-    for i in range(len(ffmpeg.probe(infile)['streams'])):
-        if ffmpeg.probe(infile)['streams'][i]['codec_type'] == 'video':
-            videoinfo = ffmpeg.probe(infile)['streams'][i]
-            break
-    height = videoinfo['height']
-    width = videoinfo['width']
+class VideoTool():
+    bins = {}
 
-    input = ffmpeg.input(infile)
-    audio = input.audio
-    video = input.video
+    def __init__(self, ffmpeg='ffmpeg', ffprobe='ffprobe'):
+        self.bins['ffmpeg'] = ffmpeg
+        self.bins['ffprobe'] = ffprobe
 
-    if args.s != 1:
-        newwidth = int(float(width * args.s))
-        newheight = int(float(height * args.s))
-        video = video.filter('scale', width=newwidth, height=newheight)
-    elif args.r:
-        width, height = args.r.split('x')
-        video = video.filter('scale', width=int(float(width)), height=int(float(height)))
-    out = ffmpeg.output(audio, video, outfile, qscale=0)
-    out.run()
+    def avmerge(self, files, maxWidth=1920, maxHeight=1080, frameRate=30, outfile='outfile.mp4'):
+        frameRate = str(frameRate)
+        maxWidth = str(maxWidth)
+        maxHeight = str(maxHeight)
+
+        if outfile in files: files.remove(outfile)
+
+        cmdoptions = []
+        filteropt1 = ''
+        filteropt2 = ''
+        for i, file in enumerate(files):
+            cmdoptions += ['-i']
+            cmdoptions += [file]
+            filteropt1 = '{filteropt1}[{i}:v]scale=iw*sar*min({maxWidth}/(iw*sar)\,{maxHeight}/ih):ih*min({maxWidth}/(iw*sar)\,{maxHeight}/ih),pad={maxWidth}:{maxHeight}:(ow-iw)/2:(oh-ih)/2,setsar=1[{i}v];'.format(
+                filteropt1=filteropt1, i=i, maxWidth=maxWidth, maxHeight=maxHeight)
+            filteropt2 = '{filteropt2}[{i}v] [{i}:a] '.format(filteropt2=filteropt2, i=i)
+        filteropt3 = 'concat=n={}:v=1:a=1 [v] [a]'.format(len(files))
+        filter = '{}{}{}'.format(filteropt1, filteropt2, filteropt3)
+
+        convertCmdString = [self.bins['ffmpeg']] + cmdoptions + [
+            '-filter_complex'
+            , filter
+            , '-map'
+            , '[v]'
+            , '-map'
+            , '[a]'
+            , '-c:a', 'libmp3lame'
+            , '-ar', '48000'
+            , '-c:v', 'libx264'
+            , '-r', frameRate
+            , '-bf', '2'
+            , '-g', frameRate
+            , '-profile:v', 'high'
+            , '-preset', 'fast'
+            , '-level', '42'
+            , outfile]
+        print(convertCmdString)
+        output = subprocess.Popen(convertCmdString).communicate()
+        print(output)
+
+    def resize_single_video(self, infile: str, scale=None, resolution=None, outfile='outfile.mp4'):
+        if scale is None and resolution is None: return
+
+        scale = float(scale)
+
+        # find current resolution
+        cmd = [self.bins['ffprobe']
+            , '-v'
+            , 'error'
+            , '-select_streams'
+            , 'v:0'
+            , '-show_entries'
+            , 'stream=width,height'
+            , '-of'
+            , 'csv=s=x:p=0'
+            , infile]
+        out, err = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True).communicate()
+        width, height = out.split('x')
+        width = int(width)
+        height = int(height)
+
+        if scale is not None:
+            newwidth = int(width * scale)
+            newheight = int(height * scale)
+        elif resolution is not None:
+            newwidth, newheight = resolution.split('x')
+
+        # convert resolution
+        cmd = [self.bins['ffmpeg']
+            , '-i'
+            , infile
+            , '-vf'
+            , 'scale={}:{}, setsar=1:1'.format(newwidth, newheight)
+            , '-preset'
+            , 'slow'
+            , '-crf'
+            , '18'
+            , outfile]
+        output = subprocess.Popen(cmd).communicate()
+        print(output)
 
 
 def cut_single_video():
@@ -137,45 +201,6 @@ def convert_to_x264():
                 out.run()
 
 
-def avmerge(files, maxWidth=1920, maxHeight=1080, frameRate=30, ffmpegcmd='ffmpeg'):
-    frameRate = str(frameRate)
-    maxWidth = str(maxWidth)
-    maxHeight = str(maxHeight)
-
-    cmdoptions = []
-    filteropt1 = ''
-    filteropt2 = ''
-    for i, file in enumerate(files):
-        cmdoptions += ['-i']
-        cmdoptions += [file]
-        filteropt1 = '{filteropt1}[{i}:v]scale=iw*sar*min({maxWidth}/(iw*sar)\,{maxHeight}/ih):ih*min({maxWidth}/(iw*sar)\,{maxHeight}/ih),pad={maxWidth}:{maxHeight}:(ow-iw)/2:(oh-ih)/2,setsar=1[{i}v];'.format(
-            filteropt1=filteropt1, i=i, maxWidth=maxWidth, maxHeight=maxHeight)
-        filteropt2 = '{filteropt2}[{i}v] [{i}:a] '.format(filteropt2=filteropt2, i=i)
-    filteropt3 = 'concat=n={}:v=1:a=1 [v] [a]'.format(len(files))
-    filter = '{}{}{}'.format(filteropt1, filteropt2, filteropt3)
-
-    convertCmdString = [ffmpegcmd] + cmdoptions + ['-filter_complex'
-        , filter
-        , '-map'
-        , '[v]'
-        , '-map'
-        , '[a]'
-        , '-c:a', 'libmp3lame'
-        , '-ar', '48000'
-        , '-c:v', 'libx264'
-        , '-r', frameRate
-        , '-bf', '2'
-        , '-g', frameRate
-        , '-profile:v', 'high'
-        , '-preset', 'fast'
-        , '-level', '42'
-        , 'output.mp4'
-                                                   ]
-    print(convertCmdString)
-    output = subprocess.Popen(convertCmdString).communicate()
-    print(output)
-
-
 def convert_to_mp3():
     infile = args.name
     outfile = os.path.splitext(infile)[0] + '.mp3'
@@ -220,8 +245,15 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    videotool = VideoTool()
     if args.resize:
-        resize_single_video()
+        infile = args.name
+        outfile = '{}_resized.mp4'.format(os.path.splitext(args.name)[0])
+        if args.s != 1:
+            videotool.resize_single_video(infile=infile, scale=args.s, outfile=outfile)
+        elif args.r:
+            videotool.resize_single_video(infile=infile, resolution=args.r, outfile=outfile)
+        # resize_single_video()
     elif args.togif:
         convert_to_gif()
     elif args.to264:
@@ -244,4 +276,4 @@ if __name__ == '__main__':
         else:
             fps = int(fps[0])
         width, height = resolution.split('x')
-        avmerge(files, int(width), int(height), int(fps))
+        videotool.avmerge(files, int(width), int(height), int(fps), outfile='myout.mp4')
