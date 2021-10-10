@@ -6,7 +6,7 @@ import os
 import subprocess
 
 
-class VideoTool():
+class VideoTool:
     bins = {}
 
     def __init__(self, ffmpeg='ffmpeg', ffprobe='ffprobe'):
