@@ -178,7 +178,6 @@ class VideoTool():
 
 
 if __name__ == '__main__':
-    appname = 'vi'
     parser = argparse.ArgumentParser()
 
     actions = parser.add_argument_group('MAIN ACTIONS')
