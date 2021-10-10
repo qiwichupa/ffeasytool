@@ -14,7 +14,7 @@ class VideoTool:
         self.bins['ffmpeg'] = ffmpeg
         self.bins['ffprobe'] = ffprobe
 
-    #--------------------------------------------
+    # --------------------------------------------
     def avmerge(self, files, maxWidth=1920, maxHeight=1080, frameRate=30, outfile='outfile.mp4'):
         frameRate = str(frameRate)
         if int(maxWidth) % 2 != 0: maxWidth = int(maxWidth) + 1
@@ -92,8 +92,9 @@ class VideoTool:
             , '-i'
             , infile
             , '-vf', 'scale={}:{}, setsar=1:1'.format(newwidth, newheight)
-            , '-preset', 'slow'
-            , '-crf', '18'
+            , '-profile:v', 'high'
+            , '-preset', 'fast'
+            , '-level', '42'
             , outfile]
         subprocess.Popen(cmd).communicate()
 
@@ -107,8 +108,9 @@ class VideoTool:
         if startpoint != '-1': cmd += ['-ss', startpoint]
         if endpoint != '-1':   cmd += ['-to', endpoint]
 
-        cmd += ['-preset', 'slow'
-            , '-crf', '18'
+        cmd += ['-profile:v', 'high'
+            , '-preset', 'fast'
+            , '-level', '42'
             , outfile]
         subprocess.Popen(cmd).communicate()
 
@@ -138,13 +140,24 @@ class VideoTool:
             print('"{}" is already webm, skipped.'.format(infile))
             return
 
+        # check if audio exists
+        cmd = [self.bins['ffprobe']
+            , '-i', infile
+            , '-show_streams'
+            , '-select_streams', 'a'
+            , '-loglevel', 'error']
+        out, err = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True).communicate()
+        audioparams = []
+        if len(out.strip()) > 1:  audioparams = ['-c:a', 'libvorbis']
+
         cmd = [self.bins['ffmpeg']
-            , '-i'
-            , infile
-            , '-c:v', 'libvpx'
-            , '-c:a', 'libvorbis'
-            , '-q:v', '10'
-            , outfile]
+                  , '-i'
+                  , infile
+                  , '-c:v', 'libvpx'
+               ] + audioparams + [
+                  '-q:v', '10'
+                  , '-auto-alt-ref', '0'
+                  , outfile]
         subprocess.Popen(cmd).communicate()
 
     # --------------------------------------------
@@ -170,6 +183,7 @@ class VideoTool:
             , '-profile:v', 'high'
             , '-preset', 'fast'
             , '-level', '42'
+            , '-pix_fmt', 'yuv420p'
             , outfile]
         subprocess.Popen(cmd).communicate()
 
