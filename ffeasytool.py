@@ -156,6 +156,8 @@ class VideoTool:
                   , '-c:v', 'libvpx'
                ] + audioparams + [
                   '-q:v', '10'
+                  , '-crf', '10'
+                  , '-b:v', '1M'
                   , '-auto-alt-ref', '0'
                   , outfile]
         subprocess.Popen(cmd).communicate()
