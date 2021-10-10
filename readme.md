@@ -1,5 +1,7 @@
 # About
-ffeasytool is a wrapper for ffmpeg and ffprobe to make some routine operations easier. The main features are: 
+ffeasytool - is a wrapper for ffmpeg and ffprobe to make some routine operations easier. 
+
+The main features are: 
 1. merging files of different formats with converting to a common resolution 
 2. converting specified audio track to mp3
 3. video trimming
