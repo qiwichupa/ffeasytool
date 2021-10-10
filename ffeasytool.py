@@ -9,10 +9,12 @@ import subprocess
 class VideoTool:
     bins = {}
 
+    # --------------------------------------------
     def __init__(self, ffmpeg='ffmpeg', ffprobe='ffprobe'):
         self.bins['ffmpeg'] = ffmpeg
         self.bins['ffprobe'] = ffprobe
 
+    #--------------------------------------------
     def avmerge(self, files, maxWidth=1920, maxHeight=1080, frameRate=30, outfile='outfile.mp4'):
         frameRate = str(frameRate)
         if int(maxWidth) % 2 != 0: maxWidth = int(maxWidth) + 1
@@ -52,6 +54,7 @@ class VideoTool:
         output = subprocess.Popen(convertCmdString).communicate()
         print(output)
 
+    # --------------------------------------------
     def resize_single_video(self, infile: str, scale=None, resolution=None, outfile='outfile.mp4'):
         if scale is None and resolution is None: return
 
@@ -94,6 +97,7 @@ class VideoTool:
             , outfile]
         subprocess.Popen(cmd).communicate()
 
+    # --------------------------------------------
     def cut_single_video(self, infile: str, startpoint='-1', endpoint='-1', outfile='outfile.mp4'):
         if startpoint == '-1' and endpoint == '-1': return
 
@@ -108,7 +112,8 @@ class VideoTool:
             , outfile]
         subprocess.Popen(cmd).communicate()
 
-    def convert_to_gif(self, infile, fps, outfile):
+    # --------------------------------------------
+    def convert_to_gif(self, infile, fps, outfile='outfile.gif'):
         cmd = [self.bins['ffmpeg']
             , '-i'
             , infile
@@ -117,7 +122,8 @@ class VideoTool:
             , outfile]
         subprocess.Popen(cmd).communicate()
 
-    def convert_to_webm(self, infile, outfile):
+    # --------------------------------------------
+    def convert_to_webm(self, infile, outfile='outfile.webm'):
 
         # check video codec
         cmd = [self.bins['ffprobe']
@@ -141,7 +147,8 @@ class VideoTool:
             , outfile]
         subprocess.Popen(cmd).communicate()
 
-    def convert_to_x264(self, infile, outfile):
+    # --------------------------------------------
+    def convert_to_x264(self, infile, outfile='outfile.mp4'):
 
         # check video codec
         cmd = [self.bins['ffprobe']
@@ -166,7 +173,8 @@ class VideoTool:
             , outfile]
         subprocess.Popen(cmd).communicate()
 
-    def convert_to_mp3(self, infile, track=0, outfile='out.mp3'):
+    # --------------------------------------------
+    def convert_to_mp3(self, infile, track=0, outfile='outfile.mp3'):
         cmd = [self.bins['ffmpeg']
             , '-i'
             , infile
