@@ -231,14 +231,20 @@ if __name__ == '__main__':
     tomp3Params = parser.add_argument_group('--tomp3 options (optional)')
     tomp3Params.add_argument('-t', type=int, default=1, metavar='T', help='track (default: 1)')
 
-    parser.add_argument('name', type=str, help='''filename or quoted wildcards (myvideo.mp4, 'vid*.mp4', etc.). 
+    parser.add_argument('name', nargs='*', help='''filename or quoted wildcards (myvideo.mp4, 'vid*.mp4', etc.). 
                                                                                 Wildcards MUST be used with --merge key, or CAN be used with --to* keys.''')
 
     args = parser.parse_args()
 
-    files = []
-    for f in sorted(glob.glob(args.name)):
-        files.append(f)
+    # correct method to parse filenames with wildcards:
+    # wildcards will be converted to filenames by shell in linux,
+    # but not in windows. So we set  "nargs='*'" in argparse argument and...
+    # ... if we have a list of filenames (maybe converted from wildcards by shell):
+    if len(args.name) > 1:
+        files = sorted(args.name)
+    # ... if argument is a one filename (or filename with wildcards in windows)
+    elif len(args.name) == 1:
+        files = sorted(glob.glob(args.name[0]))
 
     videotool = VideoTool()
 
