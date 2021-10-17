@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# v1.2-rc1
+# v1.2-rc2
 
 import argparse
 import glob
