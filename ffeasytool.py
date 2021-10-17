@@ -251,27 +251,32 @@ if __name__ == '__main__':
 
     if args.resize:
         infile = files[0]
-        outfile = '{}_resized.mp4'.format(os.path.splitext(args.name)[0])
+        infilebasename = os.path.basename(infile)
+        outfile = '{}_resized.mp4'.format(os.path.splitext(infilebasename)[0])
         if args.m != 1:
             videotool.resize_single_video(infile=infile, scale=args.m, outfile=outfile)
         elif args.r:
             videotool.resize_single_video(infile=infile, resolution=args.r, outfile=outfile)
     elif args.togif:
         for infile in files:
-            outfile = '{}.gif'.format(os.path.splitext(infile)[0])
+            infilebasename = os.path.basename(infile)
+            outfile = '{}.gif'.format(os.path.splitext(infilebasename)[0])
             fps = args.x
             videotool.convert_to_gif(infile, fps, outfile)
     elif args.to264:
         for infile in files:
-            outfile = '{}.mp4'.format(os.path.splitext(infile)[0])
+            infilebasename = os.path.basename(infile)
+            outfile = '{}.mp4'.format(os.path.splitext(infilebasename)[0])
             videotool.convert_to_x264(infile, outfile)
     elif args.towebm:
         for infile in files:
-            outfile = '{}.webm'.format(os.path.splitext(infile)[0])
+            infilebasename = os.path.basename(infile)
+            outfile = '{}.webm'.format(os.path.splitext(infilebasename)[0])
             videotool.convert_to_webm(infile, outfile)
     elif args.cut:
         infile = files[0]
-        outfile = '{}_cut.mp4'.format(os.path.splitext(infile)[0])
+        infilebasename = os.path.basename(infile)
+        outfile = '{}_cut.mp4'.format(os.path.splitext(infilebasename)[0])
         if args.a == -1 and args.b == -1:
             print('use -a and(or) -b')
         else:
@@ -279,7 +284,8 @@ if __name__ == '__main__':
     elif args.tomp3:
         tracknum = args.t - 1
         for infile in files:
-            outfile = '{}.mp3'.format(os.path.splitext(infile)[0])
+            infilebasename = os.path.basename(infile)
+            outfile = '{}.mp3'.format(os.path.splitext(infilebasename)[0])
             videotool.convert_to_mp3(infile, tracknum, outfile)
     elif args.merge:
         if args.f is None:
