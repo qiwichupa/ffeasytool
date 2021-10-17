@@ -206,7 +206,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     actions = parser.add_argument_group('MAIN ACTIONS')
-    actions.add_argument('--merge', action='store_true', help='''merge video files (use quoted wildcards). Ex.: "{n} --merge -f 1280x720 'my*.mp4'" '''.format(n=parser.prog))
+    actions.add_argument('--merge', action='store_true', help='''merge video files. Ex.: "{n} --merge -f 1280x720 my*.mp4" '''.format(n=parser.prog))
     mergeParams = parser.add_argument_group('--merge options')
     mergeParams.add_argument('-f', type=str, default=None, metavar='F', help='video format string: 1280x720[@30]')
 
@@ -221,18 +221,19 @@ if __name__ == '__main__':
     cutParams.add_argument('-a', type=str, default='-1', help='start point in [HH:][MM:]SS[.m...] format')
     cutParams.add_argument('-b', type=str, default='-1', help='end point  in [HH:][MM:]SS[.m...] format')
 
-    actions.add_argument('--togif', action='store_true', help='''convert file(s) to gif. Ex.: "{n} --togif -x 5  'my*.mp4'" '''.format(n=parser.prog))
+    actions.add_argument('--togif', action='store_true', help='''convert file(s) to gif. Ex.: "{n} --togif -x 5  my*.mp4" '''.format(n=parser.prog))
     togifParams = parser.add_argument_group('--togif options (optional)')
     togifParams.add_argument('-x', type=int, default=10, metavar='X', help='fps for gif (default: 10)')
 
-    actions.add_argument('--to264', action='store_true', help='''convert file(s) to mp4/h264. Ex.: "{n} --to264  'my*.wmv'" '''.format(n=parser.prog))
-    actions.add_argument('--towebm', action='store_true', help='''convert file(s) to webm. Ex.: "{n} --towebm  'my*.mp4'" '''.format(n=parser.prog))
-    actions.add_argument('--tomp3', action='store_true', help='''extract audio to mp3. Ex.: "{n} --tomp3 -t 2  'my*.mp4'" '''.format(n=parser.prog))
+    actions.add_argument('--to264', action='store_true', help='''convert file(s) to mp4/h264. Ex.: "{n} --to264  my*.wmv" '''.format(n=parser.prog))
+    actions.add_argument('--towebm', action='store_true', help='''convert file(s) to webm. Ex.: "{n} --towebm  my*.mp4" '''.format(n=parser.prog))
+    actions.add_argument('--tomp3', action='store_true', help='''extract audio to mp3. Ex.: "{n} --tomp3 -t 2  my*.mp4" '''.format(n=parser.prog))
     tomp3Params = parser.add_argument_group('--tomp3 options (optional)')
     tomp3Params.add_argument('-t', type=int, default=1, metavar='T', help='track (default: 1)')
 
-    parser.add_argument('name', nargs='*', help='''filename or quoted wildcards (myvideo.mp4, 'vid*.mp4', etc.). 
-                                                                                Wildcards MUST be used with --merge key, or CAN be used with --to* keys.''')
+    parser.add_argument('name', nargs='*', help='''filename(s) or wildcards (myvideo.mp4, vid*.mp4, etc.). 
+                                                    Wildcards (or list of files) MUST be used with --merge key, or CAN be used with --to* keys. 
+                                                    Use single filename with other keys.''')
 
     args = parser.parse_args()
 
