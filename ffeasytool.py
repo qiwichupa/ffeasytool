@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# v1.2-rc2
+# v1.2-rc3
 
 import argparse
 import glob
@@ -204,52 +204,51 @@ class VideoTool:
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
+    subparser = parser.add_subparsers(title='COMMANDS', dest='command', help='''Use: '%(prog)s COMMAND -h' for additional help''')
+    merge = subparser.add_parser('merge', help='''merge video files. Ex.: "%(prog)s merge -f 1280x720 *.mp4" ''')
+    resize = subparser.add_parser('resize', help='''resize single video. Ex.: "%(prog)s resize -m 0.5 myvideo.mp4",  "%(prog)s resize -r 1280x720 myvideo.mp4"''')
+    cut = subparser.add_parser('cut', help='''cut single video. Use -a and(or) -b parameters as  start and end points. Ex.: "%(prog)s cut -a 01:05 -b 02:53 myvideo.mp4" ''')
+    togif = subparser.add_parser('togif', help='''convert file(s) to gif. Ex.: "%(prog)s togif -x 5 *.mp4" ''')
+    to264 = subparser.add_parser('to264', help='''convert file(s) to mp4/h264. Ex.: "%(prog)s to264 *.wmv" ''')
+    towebm = subparser.add_parser('towebm', help='''convert file(s) to webm. Ex.: "%(prog)s towebm *.mp4" ''')
+    tomp3 = subparser.add_parser('tomp3', help='''extract audio to mp3. Ex.: "%(prog)s tomp3 -t 2 *.mp4" ''')
 
-    actions = parser.add_argument_group('MAIN ACTIONS')
-    actions.add_argument('--merge', action='store_true', help='''merge video files. Ex.: "{n} --merge -f 1280x720 my*.mp4" '''.format(n=parser.prog))
-    mergeParams = parser.add_argument_group('--merge options')
-    mergeParams.add_argument('-f', type=str, default=None, metavar='F', help='video format string: 1280x720[@30]')
+    merge.add_argument('-f', type=str, default=None, metavar='F', help='video format string: 1280x720[@30]')
+    merge.add_argument('file', nargs='+', help='files (space-separated) or name with wildcards.')
 
-    actions.add_argument('--resize', action='store_true', help='''resize single video. Ex.: "{n} --resize -m 0.5 myvideo.mp4",  "{n} --resize -r 1280x720 myvideo.mp4"'''.format(n=parser.prog))
-    resizeParams = parser.add_argument_group('--resize options (use -m or -r)')
-    resizeParams.add_argument('-m', type=float, default=1, metavar='M', help='multiplier: 0.5, 2, 3.4, etc.')
-    resizeParams.add_argument('-r', type=str, default=None, metavar='R', help='resolution: 1280x720, etc.')
+    resize.add_argument('-m', type=float, default=1, metavar='M', help='multiplier: 0.5, 2, 3.4, etc.')
+    resize.add_argument('-r', type=str, default=None, metavar='F', help='resolution: 1280x720, etc.')
+    resize.add_argument('file', nargs=1, help='file')
 
-    actions.add_argument('--cut', action='store_true', help='''cut single video. Use -a and(or) -b parameters as 
-                                                                                            start and end points. Ex.: "{n} --cut -a 01:05 -b 02:53 myvideo.mp4" '''.format(n=parser.prog))
-    cutParams = parser.add_argument_group('--cut options (use -a and(or) -b)')
-    cutParams.add_argument('-a', type=str, default='-1', help='start point in [HH:][MM:]SS[.m...] format')
-    cutParams.add_argument('-b', type=str, default='-1', help='end point  in [HH:][MM:]SS[.m...] format')
+    cut.add_argument('-a', type=str, default='-1', help='start point in [HH:][MM:]SS[.m...] format')
+    cut.add_argument('-b', type=str, default='-1', help='end point  in [HH:][MM:]SS[.m...] format')
+    cut.add_argument('file', nargs=1, help='file')
 
-    actions.add_argument('--togif', action='store_true', help='''convert file(s) to gif. Ex.: "{n} --togif -x 5  my*.mp4" '''.format(n=parser.prog))
-    togifParams = parser.add_argument_group('--togif options (optional)')
-    togifParams.add_argument('-x', type=int, default=10, metavar='X', help='fps for gif (default: 10)')
+    togif.add_argument('-x', type=int, default=10, metavar='X', help='fps for gif (default: 10)')
+    togif.add_argument('file', nargs='+', help='file(s) (space-separated) or name with wildcards.')
 
-    actions.add_argument('--to264', action='store_true', help='''convert file(s) to mp4/h264. Ex.: "{n} --to264  my*.wmv" '''.format(n=parser.prog))
-    actions.add_argument('--towebm', action='store_true', help='''convert file(s) to webm. Ex.: "{n} --towebm  my*.mp4" '''.format(n=parser.prog))
-    actions.add_argument('--tomp3', action='store_true', help='''extract audio to mp3. Ex.: "{n} --tomp3 -t 2  my*.mp4" '''.format(n=parser.prog))
-    tomp3Params = parser.add_argument_group('--tomp3 options (optional)')
-    tomp3Params.add_argument('-t', type=int, default=1, metavar='T', help='track (default: 1)')
+    to264.add_argument('file', nargs='+', help='file(s) (space-separated) or name with wildcards.')
 
-    parser.add_argument('name', nargs='*', help='''filename(s) or wildcards (myvideo.mp4, vid*.mp4, etc.). 
-                                                    Wildcards (or list of files) MUST be used with --merge key, or CAN be used with --to* keys. 
-                                                    Use single filename with other keys.''')
+    towebm.add_argument('file', nargs='+', help='file(s) (space-separated) or name with wildcards.')
+
+    tomp3.add_argument('-t', type=int, default=1, metavar='T', help='track (default: 1)')
+    tomp3.add_argument('file', nargs='+', help='file(s) (space-separated) or name with wildcards.')
 
     args = parser.parse_args()
 
     # correct method to parse filenames with wildcards:
     # wildcards will be converted to filenames by shell in linux,
-    # but not in windows. So we set  "nargs='*'" in argparse argument and...
+    # but not in windows. So we set  "nargs='+'" in argparse argument and...
     # ... if we have a list of filenames (maybe converted from wildcards by shell):
-    if len(args.name) > 1:
-        files = sorted(args.name)
+    if len(args.file) > 1:
+        files = sorted(args.file)
     # ... if argument is a one filename (or filename with wildcards in windows)
-    elif len(args.name) == 1:
-        files = sorted(glob.glob(args.name[0]))
+    elif len(args.file) == 1:
+        files = sorted(glob.glob(args.file[0]))
 
     videotool = VideoTool()
 
-    if args.resize:
+    if args.command == 'resize':
         infile = files[0]
         infilebasename = os.path.basename(infile)
         outfile = '{}_resized.mp4'.format(os.path.splitext(infilebasename)[0])
@@ -257,23 +256,23 @@ if __name__ == '__main__':
             videotool.resize_single_video(infile=infile, scale=args.m, outfile=outfile)
         elif args.r:
             videotool.resize_single_video(infile=infile, resolution=args.r, outfile=outfile)
-    elif args.togif:
+    elif args.command == 'togif':
         for infile in files:
             infilebasename = os.path.basename(infile)
             outfile = '{}.gif'.format(os.path.splitext(infilebasename)[0])
             fps = args.x
             videotool.convert_to_gif(infile, fps, outfile)
-    elif args.to264:
+    elif args.command == 'to264':
         for infile in files:
             infilebasename = os.path.basename(infile)
             outfile = '{}.mp4'.format(os.path.splitext(infilebasename)[0])
             videotool.convert_to_x264(infile, outfile)
-    elif args.towebm:
+    elif args.command == 'towebm':
         for infile in files:
             infilebasename = os.path.basename(infile)
             outfile = '{}.webm'.format(os.path.splitext(infilebasename)[0])
             videotool.convert_to_webm(infile, outfile)
-    elif args.cut:
+    elif args.command == 'cut':
         infile = files[0]
         infilebasename = os.path.basename(infile)
         outfile = '{}_cut.mp4'.format(os.path.splitext(infilebasename)[0])
@@ -281,13 +280,13 @@ if __name__ == '__main__':
             print('use -a and(or) -b')
         else:
             videotool.cut_single_video(infile=infile, startpoint=args.a, endpoint=args.b, outfile=outfile)
-    elif args.tomp3:
+    elif args.command == 'tomp3':
         tracknum = args.t - 1
         for infile in files:
             infilebasename = os.path.basename(infile)
             outfile = '{}.mp3'.format(os.path.splitext(infilebasename)[0])
             videotool.convert_to_mp3(infile, tracknum, outfile)
-    elif args.merge:
+    elif args.command == 'merge':
         if args.f is None:
             print('use -f to set resolution (-f 1280x720[@30])')
             exit(1)
