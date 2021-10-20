@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# v1.2-rc3
 
 import argparse
 import glob
@@ -203,7 +202,9 @@ class VideoTool:
 
 
 if __name__ == '__main__':
+    version = '1.2-rc4'
     parser = argparse.ArgumentParser()
+    parser.add_argument('--version', action='store_true', help='show version')
     subparser = parser.add_subparsers(title='COMMANDS', dest='command', help='''Use: '%(prog)s COMMAND -h' for additional help''')
     merge = subparser.add_parser('merge', help='''merge video files. Ex.: "%(prog)s merge -f 1280x720 *.mp4" ''')
     resize = subparser.add_parser('resize', help='''resize single video. Ex.: "%(prog)s resize -m 0.5 myvideo.mp4",  "%(prog)s resize -r 1280x720 myvideo.mp4"''')
@@ -236,6 +237,10 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    if args.version:
+        print('{}'.format(version))
+        exit(0)
+        
     # correct method to parse filenames with wildcards:
     # wildcards will be converted to filenames by shell in linux,
     # but not in windows. So we set  "nargs='+'" in argparse argument and...
