@@ -50,9 +50,7 @@ class VideoTool:
             , '-preset', 'fast'
             , '-level', '42'
             , outfile]
-        print(convertCmdString)
-        output = subprocess.Popen(convertCmdString).communicate()
-        print(output)
+        subprocess.Popen(convertCmdString).communicate()
 
     # --------------------------------------------
     def resize_single_video(self, infile: str, scale=None, resolution=None, outfile='outfile.mp4'):
@@ -202,17 +200,17 @@ class VideoTool:
 
 
 if __name__ == '__main__':
-    version = '1.2-rc4'
+    ver = '1.2-rc5'
     parser = argparse.ArgumentParser()
-    parser.add_argument('--version', action='store_true', help='show version')
-    subparser = parser.add_subparsers(title='COMMANDS', dest='command', help='''Use: '%(prog)s COMMAND -h' for additional help''')
-    merge = subparser.add_parser('merge', help='''merge video files. Ex.: "%(prog)s merge -f 1280x720 *.mp4" ''')
-    resize = subparser.add_parser('resize', help='''resize single video. Ex.: "%(prog)s resize -m 0.5 myvideo.mp4",  "%(prog)s resize -r 1280x720 myvideo.mp4"''')
-    cut = subparser.add_parser('cut', help='''cut single video. Use -a and(or) -b parameters as  start and end points. Ex.: "%(prog)s cut -a 01:05 -b 02:53 myvideo.mp4" ''')
-    togif = subparser.add_parser('togif', help='''convert file(s) to gif. Ex.: "%(prog)s togif -x 5 *.mp4" ''')
-    to264 = subparser.add_parser('to264', help='''convert file(s) to mp4/h264. Ex.: "%(prog)s to264 *.wmv" ''')
-    towebm = subparser.add_parser('towebm', help='''convert file(s) to webm. Ex.: "%(prog)s towebm *.mp4" ''')
-    tomp3 = subparser.add_parser('tomp3', help='''extract audio to mp3. Ex.: "%(prog)s tomp3 -t 2 *.mp4" ''')
+    subparser = parser.add_subparsers(title='COMMANDS', dest='command', required=True, help='''Use: '%(prog)s COMMAND -h' for additional help''')
+    merge = subparser.add_parser('merge', help='''Merge video files. Ex.: "%(prog)s merge -f 1280x720 *.mp4" ''')
+    resize = subparser.add_parser('resize', help='''Resize single video. Ex.: "%(prog)s resize -m 0.5 myvideo.mp4",  "%(prog)s resize -r 1280x720 myvideo.mp4"''')
+    cut = subparser.add_parser('cut', help='''Cut single video. Use -a and(or) -b parameters as  start and end points. Ex.: "%(prog)s cut -a 01:05 -b 02:53 myvideo.mp4" ''')
+    togif = subparser.add_parser('togif', help='''Convert file(s) to gif. Ex.: "%(prog)s togif -x 5 *.mp4" ''')
+    to264 = subparser.add_parser('to264', help='''Convert file(s) to mp4/h264. Ex.: "%(prog)s to264 *.wmv" ''')
+    towebm = subparser.add_parser('towebm', help='''Convert file(s) to webm. Ex.: "%(prog)s towebm *.mp4" ''')
+    tomp3 = subparser.add_parser('tomp3', help='''Extract audio to mp3. Ex.: "%(prog)s tomp3 -t 2 *.mp4" ''')
+    version = subparser.add_parser('version', help='''Show version''')
 
     merge.add_argument('-f', type=str, default=None, metavar='F', help='video format string: 1280x720[@30]')
     merge.add_argument('file', nargs='+', help='files (space-separated) or name with wildcards.')
@@ -237,10 +235,20 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    if args.version:
-        print('{}'.format(version))
+    if args.command == 'version':
+        try:
+            out, err = subprocess.Popen(['ffmpeg', '-version'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True).communicate()
+            ffmpegver = '{}'.format(out.split('\n')[0].split(' ')[2])
+        except:
+            ffmpegver = 'ffmpeg not found (check PATH environment variable)'
+        try:
+            out, err = subprocess.Popen(['ffprobe', '-version'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True).communicate()
+            ffprobever = '{}'.format(out.split('\n')[0].split(' ')[2])
+        except:
+            ffprobever = 'ffprobe not found (check PATH environment variable)'
+        print('version: {}\nffmpeg: {}\nffprobe: {}'.format(ver, ffmpegver, ffprobever))
         exit(0)
-        
+
     # correct method to parse filenames with wildcards:
     # wildcards will be converted to filenames by shell in linux,
     # but not in windows. So we set  "nargs='+'" in argparse argument and...
