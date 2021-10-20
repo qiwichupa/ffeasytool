@@ -4,6 +4,7 @@ import argparse
 import glob
 import os
 import subprocess
+import sys
 
 
 class VideoTool:
@@ -200,7 +201,7 @@ class VideoTool:
 
 
 if __name__ == '__main__':
-    ver = '1.2-rc5'
+    ver = '1.2-rc6'
     parser = argparse.ArgumentParser()
     subparser = parser.add_subparsers(title='COMMANDS', dest='command', required=True, help='''Use: '%(prog)s COMMAND -h' for additional help''')
     merge = subparser.add_parser('merge', help='''Merge video files. Ex.: "%(prog)s merge -f 1280x720 *.mp4" ''')
@@ -247,7 +248,7 @@ if __name__ == '__main__':
         except:
             ffprobever = 'ffprobe not found (check PATH environment variable)'
         print('version: {}\nffmpeg: {}\nffprobe: {}'.format(ver, ffmpegver, ffprobever))
-        exit(0)
+        sys.exit()
 
     # correct method to parse filenames with wildcards:
     # wildcards will be converted to filenames by shell in linux,
