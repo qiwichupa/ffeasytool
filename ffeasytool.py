@@ -201,7 +201,7 @@ class VideoTool:
 
 
 if __name__ == '__main__':
-    ver = '1.2-rc6'
+    ver = '1.3'
     parser = argparse.ArgumentParser()
     subparser = parser.add_subparsers(title='COMMANDS', dest='command', required=True, help='''Use: '%(prog)s COMMAND -h' for additional help''')
     merge = subparser.add_parser('merge', help='''Merge video files. Ex.: "%(prog)s merge -f 1280x720 *.mp4" ''')
