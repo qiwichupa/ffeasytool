@@ -1,4 +1,4 @@
-# About
+# ABOUT
 ffeasytool - is a wrapper for ffmpeg and ffprobe, simplifying some routine operations. 
 
 The main features are: 
