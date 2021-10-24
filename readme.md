@@ -1,4 +1,4 @@
-# ABOUT
+# About
 ffeasytool - is a wrapper for ffmpeg and ffprobe, simplifying some routine operations. 
 
 The main features are: 
@@ -8,7 +8,7 @@ The main features are:
 4. change of resolution
 5. file conversion to gif, mp4 (h264), webm (vp8)
 
-# EXAMPLES
+# Examples
 #### merge my01.mp4, my02.mp4, my03.mp4
 
 `ffeasytool.py merge -f 1280x720 my*.mp4`
@@ -24,3 +24,6 @@ The main features are:
 
 #### convert all mp4 to gif (with 5 fps)
 `ffeasytool.py togif -x 5 *.mp4`
+
+#### split file to chunks by 20 min
+`ffeasytool.py split -t 20m myvideo.mp4`
