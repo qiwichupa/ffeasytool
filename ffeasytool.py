@@ -9,6 +9,9 @@ import sys
 
 class VideoTool:
     bins = {}
+    h264quality = ['-profile:v', 'high'
+                 , '-preset', 'fast'
+                 , '-level', '42']
 
     # --------------------------------------------
     def __init__(self, ffmpeg='ffmpeg', ffprobe='ffprobe'):
@@ -37,7 +40,9 @@ class VideoTool:
         filteropt3 = 'concat=n={}:v=1:a=1 [v] [a]'.format(len(files))
         filter = '{}{}{}'.format(filteropt1, filteropt2, filteropt3)
 
-        convertCmdString = [self.bins['ffmpeg']] + cmdoptions + [
+        cmd = [self.bins['ffmpeg']]
+        cmd += cmdoptions
+        cmd += [
             '-filter_complex', filter
             , '-map', '[v]'
             , '-map', '[a]'
@@ -47,11 +52,10 @@ class VideoTool:
             , '-r', frameRate
             , '-bf', '2'
             , '-g', frameRate
-            , '-profile:v', 'high'
-            , '-preset', 'fast'
-            , '-level', '42'
-            , outfile]
-        subprocess.Popen(convertCmdString).communicate()
+            ]
+        cmd += self.h264quality
+        cmd += [outfile]
+        subprocess.Popen(cmd).communicate()
 
     # --------------------------------------------
     def resize_single_video(self, infile: str, scale=None, resolution=None, outfile='outfile.mp4'):
@@ -87,14 +91,14 @@ class VideoTool:
         if newheight % 2 != 0: newheight += 1
 
         # convert resolution
-        cmd = [self.bins['ffmpeg']
+        cmd = [
+            self.bins['ffmpeg']
             , '-i'
             , infile
             , '-vf', 'scale={}:{}, setsar=1:1'.format(newwidth, newheight)
-            , '-profile:v', 'high'
-            , '-preset', 'fast'
-            , '-level', '42'
-            , outfile]
+            ]
+        cmd += self.h264quality
+        cmd += [outfile]
         subprocess.Popen(cmd).communicate()
 
     # --------------------------------------------
@@ -107,23 +111,23 @@ class VideoTool:
         if startpoint != '-1': cmd += ['-ss', startpoint]
         if endpoint != '-1':   cmd += ['-to', endpoint]
 
-        cmd += ['-profile:v', 'high'
-            , '-preset', 'fast'
-            , '-level', '42'
-            , outfile]
+        cmd += self.h264quality
+        cmd += [outfile]
         subprocess.Popen(cmd).communicate()
 
     # --------------------------------------------
-    def split_video(self, infile, time='0') -> None:
+    def split_video(self, infile, time='0', chunks=0) -> None:
         '''time in seconds (also in 1m/1h format)'''
         if chunks == 0 and time == '0': return
 
         infilebasename = os.path.basename(infile)
         outfile = '{}.split_%03d.mp4'.format(os.path.splitext(infilebasename)[0])
 
-        cmd = [self.bins['ffmpeg']
+        cmd = [
+            self.bins['ffmpeg']
             , '-i'
-            , infile]
+            , infile
+            ]
 
         if chunks != 0:
             pass
@@ -146,71 +150,85 @@ class VideoTool:
                 , '-map', '0'
                 , '-segment_time', str(time)]
 
-        cmd += ['-sc_threshold', '0'
-            , '-crf', '22'
+        cmd += [
+            '-sc_threshold', '0'
+            , '-crf', '20'
             , '-g', '9'
             , '-force_key_frames', 'expr:gte(t,n_forced*9)'
-            , outfile]
+            ]
+        cmd += [outfile]
         subprocess.Popen(cmd).communicate()
 
     # --------------------------------------------
     def convert_to_gif(self, infile, fps, outfile='outfile.gif'):
-        cmd = [self.bins['ffmpeg']
+        cmd = [
+            self.bins['ffmpeg']
             , '-i'
             , infile
             , '-vf', 'fps={},split[s0][s1];[s0]palettegen=stats_mode=single[p];[s1][p]paletteuse'.format(fps)
             , '-loop', '0'
-            , outfile]
+            , outfile
+            ]
         subprocess.Popen(cmd).communicate()
 
     # --------------------------------------------
     def convert_to_webm(self, infile, outfile='outfile.webm'):
 
         # check video codec
-        cmd = [self.bins['ffprobe']
+        cmdpv = [
+            self.bins['ffprobe']
             , '-v', 'error'
             , '-select_streams', 'v:0'
             , '-show_entries', 'stream=codec_name'
             , '-of', 'default=noprint_wrappers=1:nokey=1'
-            , infile]
-        out, err = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True).communicate()
+            , infile
+            ]
+        out, err = subprocess.Popen(cmdpv, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True).communicate()
 
         if out.strip() == 'vp8':
             print('"{}" is already webm, skipped.'.format(infile))
             return
 
         # check if audio exists
-        cmd = [self.bins['ffprobe']
+        cmdpa = [
+            self.bins['ffprobe']
             , '-i', infile
             , '-show_streams'
             , '-select_streams', 'a'
-            , '-loglevel', 'error']
-        out, err = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True).communicate()
+            , '-loglevel', 'error'
+            ]
+        out, err = subprocess.Popen(cmdpa, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True).communicate()
         audioparams = []
         if len(out.strip()) > 1:  audioparams = ['-c:a', 'libvorbis']
 
-        cmd = [self.bins['ffmpeg']
-                  , '-i'
-                  , infile
-                  , '-c:v', 'libvpx'
-               ] + audioparams + [
-                  '-q:v', '10'
-                  , '-crf', '10'
-                  , '-b:v', '1M'
-                  , '-auto-alt-ref', '0'
-                  , outfile]
+        cmd = [
+            self.bins['ffmpeg']
+            , '-i'
+            , infile
+            ]
+        cmd += audioparams
+        cmd += [
+            '-c:v', 'libvpx'
+            , '-q:v', '10'
+            , '-crf', '10'
+            , '-b:v', '1M'
+            , '-auto-alt-ref', '0'
+            ]
+        cmd += [outfile]
         subprocess.Popen(cmd).communicate()
 
     # --------------------------------------------
     def convert_to_x264(self, infile, outfile='outfile.mp4'):
 
         # check video codec
-        cmd = [self.bins['ffprobe']
+        cmd = [
+            self.bins['ffprobe']
             , '-v', 'error'
             , '-select_streams', 'v:0'
             , '-show_entries', 'stream=codec_name'
             , '-of', 'default=noprint_wrappers=1:nokey=1'
-            , infile]
+            , infile
+            ]
         out, err = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True).communicate()
 
         if out.strip() == 'h264':
@@ -219,24 +237,24 @@ class VideoTool:
 
         cmd = [self.bins['ffmpeg']
             , '-i'
-            , infile
-            , '-c:v', 'libx264'
-            , '-profile:v', 'high'
-            , '-preset', 'fast'
-            , '-level', '42'
-            , '-pix_fmt', 'yuv420p'
-            , outfile]
+            , infile]
+        cmd += ['-c:v', 'libx264']
+        cmd += self.h264quality
+        cmd += ['-pix_fmt', 'yuv420p']
+        cmd += [outfile]
         subprocess.Popen(cmd).communicate()
 
     # --------------------------------------------
     def convert_to_mp3(self, infile, track=0, outfile='outfile.mp3'):
-        cmd = [self.bins['ffmpeg']
+        cmd = [
+            self.bins['ffmpeg']
             , '-i'
             , infile
             , '-map', '0:a:{}'.format(track)
             , '-c:a', 'libmp3lame'
             , '-ar', '48000'
-            , outfile]
+            ]
+        cmd += [outfile]
         subprocess.Popen(cmd).communicate()
 
 
