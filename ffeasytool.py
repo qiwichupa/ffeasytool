@@ -263,7 +263,7 @@ class VideoTool:
 
 
 if __name__ == '__main__':
-    ver = '1.4-rc1'
+    ver = '1.4-rc2'
     parser = argparse.ArgumentParser()
     subparser = parser.add_subparsers(title='COMMANDS', dest='command', required=True, help='''Use: '%(prog)s COMMAND -h' for additional help''')
     cut = subparser.add_parser('cut', help='''Cut single video. Use -a and(or) -b parameters as  start and end points. Ex.: "%(prog)s cut -a 01:05 -b 02:53 myvideo.mp4" ''')
