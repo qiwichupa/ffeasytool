@@ -25,5 +25,5 @@ The main features are:
 #### convert all mp4 to gif (with 5 fps)
 `ffeasytool.py togif -x 5 *.mp4`
 
-#### split file to chunks by 20 min
+#### split file into chunks of 20 min
 `ffeasytool.py split -t 20m myvideo.mp4`
