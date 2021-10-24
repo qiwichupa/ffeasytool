@@ -114,6 +114,46 @@ class VideoTool:
         subprocess.Popen(cmd).communicate()
 
     # --------------------------------------------
+    def split_video(self, infile, time='0') -> None:
+        '''time in seconds (also in 1m/1h format)'''
+        if chunks == 0 and time == '0': return
+
+        infilebasename = os.path.basename(infile)
+        outfile = '{}.split_%03d.mp4'.format(os.path.splitext(infilebasename)[0])
+
+        cmd = [self.bins['ffmpeg']
+            , '-i'
+            , infile]
+
+        if chunks != 0:
+            pass
+        elif time != '0':
+            if time.endswith('m'):
+                try:
+                    time = int(time[:-1]) * 60
+                except Exception as e:
+                    print('{}\n\nUse time format: 1 - 1 sec, 1m - 1 min, 1h - 1 hour.'.format(e))
+            elif time.endswith('h'):
+                try:
+                    time = int(time[:-1]) * 60 * 60
+                except Exception as e:
+                    print('{}\n\nUse time format: 1 - 1 sec, 1m - 1 min, 1h - 1 hour.'.format(e))
+            else:
+                time = int(time)
+
+            cmd += ['-f', 'segment'
+                , '-reset_timestamps', '1'
+                , '-map', '0'
+                , '-segment_time', str(time)]
+
+        cmd += ['-sc_threshold', '0'
+            , '-crf', '22'
+            , '-g', '9'
+            , '-force_key_frames', 'expr:gte(t,n_forced*9)'
+            , outfile]
+        subprocess.Popen(cmd).communicate()
+
+    # --------------------------------------------
     def convert_to_gif(self, infile, fps, outfile='outfile.gif'):
         cmd = [self.bins['ffmpeg']
             , '-i'
@@ -201,12 +241,13 @@ class VideoTool:
 
 
 if __name__ == '__main__':
-    ver = '1.3'
+    ver = '1.4-rc1'
     parser = argparse.ArgumentParser()
     subparser = parser.add_subparsers(title='COMMANDS', dest='command', required=True, help='''Use: '%(prog)s COMMAND -h' for additional help''')
     merge = subparser.add_parser('merge', help='''Merge video files. Ex.: "%(prog)s merge -f 1280x720 *.mp4" ''')
     resize = subparser.add_parser('resize', help='''Resize single video. Ex.: "%(prog)s resize -m 0.5 myvideo.mp4",  "%(prog)s resize -r 1280x720 myvideo.mp4"''')
     cut = subparser.add_parser('cut', help='''Cut single video. Use -a and(or) -b parameters as  start and end points. Ex.: "%(prog)s cut -a 01:05 -b 02:53 myvideo.mp4" ''')
+    split = subparser.add_parser('split', help='''Split single video. Ex.: "%(prog)s split -t 5m myvideo.mp4" ''')
     togif = subparser.add_parser('togif', help='''Convert file(s) to gif. Ex.: "%(prog)s togif -x 5 *.mp4" ''')
     to264 = subparser.add_parser('to264', help='''Convert file(s) to mp4/h264. Ex.: "%(prog)s to264 *.wmv" ''')
     towebm = subparser.add_parser('towebm', help='''Convert file(s) to webm. Ex.: "%(prog)s towebm *.mp4" ''')
@@ -223,6 +264,9 @@ if __name__ == '__main__':
     cut.add_argument('-a', type=str, default='-1', help='start point in [HH:][MM:]SS[.m...] format')
     cut.add_argument('-b', type=str, default='-1', help='end point  in [HH:][MM:]SS[.m...] format')
     cut.add_argument('file', nargs=1, help='file')
+
+    split.add_argument('-t', type=str, default='0', help='chunks length (in seconds by default): 15, 2m, 1h')
+    split.add_argument('file', nargs=1, help='file')
 
     togif.add_argument('-x', type=int, default=10, metavar='X', help='fps for gif (default: 10)')
     togif.add_argument('file', nargs='+', help='file(s) (space-separated) or name with wildcards.')
@@ -270,6 +314,13 @@ if __name__ == '__main__':
             videotool.resize_single_video(infile=infile, scale=args.m, outfile=outfile)
         elif args.r:
             videotool.resize_single_video(infile=infile, resolution=args.r, outfile=outfile)
+    elif args.command == 'split':
+        infile = files[0]
+        infilebasename = os.path.basename(infile)
+        if args.t != '0':
+            videotool.split_video(infile=infile, time=args.t)
+        else:
+            print('use -t to set chunk length.')
     elif args.command == 'togif':
         for infile in files:
             infilebasename = os.path.basename(infile)
