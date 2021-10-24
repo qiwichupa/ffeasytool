@@ -9,9 +9,11 @@ import sys
 
 class VideoTool:
     bins = {}
-    h264quality = ['-profile:v', 'high'
+    h264quality = [
+                '-profile:v', 'high'
                  , '-preset', 'fast'
-                 , '-level', '42']
+                 , '-level', '42'
+                ]
 
     # --------------------------------------------
     def __init__(self, ffmpeg='ffmpeg', ffprobe='ffprobe'):
@@ -93,8 +95,7 @@ class VideoTool:
         # convert resolution
         cmd = [
             self.bins['ffmpeg']
-            , '-i'
-            , infile
+            , '-i', infile
             , '-vf', 'scale={}:{}, setsar=1:1'.format(newwidth, newheight)
             ]
         cmd += self.h264quality
@@ -105,9 +106,10 @@ class VideoTool:
     def cut_single_video(self, infile: str, startpoint='-1', endpoint='-1', outfile='outfile.mp4'):
         if startpoint == '-1' and endpoint == '-1': return
 
-        cmd = [self.bins['ffmpeg']
-            , '-i'
-            , infile]
+        cmd = [
+            self.bins['ffmpeg']
+            , '-i', infile
+            ]
         if startpoint != '-1': cmd += ['-ss', startpoint]
         if endpoint != '-1':   cmd += ['-to', endpoint]
 
@@ -125,8 +127,7 @@ class VideoTool:
 
         cmd = [
             self.bins['ffmpeg']
-            , '-i'
-            , infile
+            , '-i', infile
             ]
 
         if chunks != 0:
@@ -145,10 +146,12 @@ class VideoTool:
             else:
                 time = int(time)
 
-            cmd += ['-f', 'segment'
+            cmd += [
+                '-f', 'segment'
                 , '-reset_timestamps', '1'
                 , '-map', '0'
-                , '-segment_time', str(time)]
+                , '-segment_time', str(time)
+                ]
 
         cmd += [
             '-sc_threshold', '0'
@@ -163,12 +166,13 @@ class VideoTool:
     def convert_to_gif(self, infile, fps, outfile='outfile.gif'):
         cmd = [
             self.bins['ffmpeg']
-            , '-i'
-            , infile
-            , '-vf', 'fps={},split[s0][s1];[s0]palettegen=stats_mode=single[p];[s1][p]paletteuse'.format(fps)
-            , '-loop', '0'
-            , outfile
+            , '-i', infile
             ]
+        cmd += [
+            '-vf', 'fps={},split[s0][s1];[s0]palettegen=stats_mode=single[p];[s1][p]paletteuse'.format(fps)
+            , '-loop', '0'
+            ]
+        cmd += [outfile]
         subprocess.Popen(cmd).communicate()
 
     # --------------------------------------------
@@ -203,8 +207,7 @@ class VideoTool:
 
         cmd = [
             self.bins['ffmpeg']
-            , '-i'
-            , infile
+            , '-i', infile
             ]
         cmd += audioparams
         cmd += [
@@ -235,9 +238,10 @@ class VideoTool:
             print('"{}" is already h264, skipped.'.format(infile))
             return
 
-        cmd = [self.bins['ffmpeg']
-            , '-i'
-            , infile]
+        cmd = [
+            self.bins['ffmpeg']
+            , '-i', infile
+            ]
         cmd += ['-c:v', 'libx264']
         cmd += self.h264quality
         cmd += ['-pix_fmt', 'yuv420p']
@@ -248,9 +252,9 @@ class VideoTool:
     def convert_to_mp3(self, infile, track=0, outfile='outfile.mp3'):
         cmd = [
             self.bins['ffmpeg']
-            , '-i'
-            , infile
-            , '-map', '0:a:{}'.format(track)
+            , '-i', infile]
+        cmd += [
+            '-map', '0:a:{}'.format(track)
             , '-c:a', 'libmp3lame'
             , '-ar', '48000'
             ]
