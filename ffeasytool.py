@@ -9,11 +9,6 @@ import sys
 
 class VideoTool:
     bins = {}
-    h264quality = [
-                '-profile:v', 'high'
-                 , '-preset', 'fast'
-                 , '-level', '42'
-                ]
 
     # --------------------------------------------
     def __init__(self, ffmpeg='ffmpeg', ffprobe='ffprobe'):
@@ -21,7 +16,18 @@ class VideoTool:
         self.bins['ffprobe'] = ffprobe
 
     # --------------------------------------------
-    def avmerge(self, files, maxWidth=1920, maxHeight=1080, frameRate=30, outfile='outfile.mp4'):
+    def _get_h264settings(self, quality):
+        return [
+            '-c:v', 'libx264'
+            , '-crf', str(quality)
+            , '-preset', 'fast'
+            , '-g', '30'
+            , '-force_key_frames', 'expr:gte(t,n_forced*18)'
+            , '-pix_fmt', 'yuv420p'
+            ]
+
+    # --------------------------------------------
+    def avmerge(self, files, maxWidth=1920, maxHeight=1080, frameRate=30, quality=22, outfile='outfile.mp4'):
         frameRate = str(frameRate)
         if int(maxWidth) % 2 != 0: maxWidth = int(maxWidth) + 1
         if int(maxHeight) % 2 != 0: maxHeight = int(maxHeight) + 1
@@ -50,17 +56,15 @@ class VideoTool:
             , '-map', '[a]'
             , '-c:a', 'libmp3lame'
             , '-ar', '48000'
-            , '-c:v', 'libx264'
             , '-r', frameRate
             , '-bf', '2'
-            , '-g', frameRate
             ]
-        cmd += self.h264quality
+        cmd += self._get_h264settings(quality)
         cmd += [outfile]
         subprocess.Popen(cmd).communicate()
 
     # --------------------------------------------
-    def resize_single_video(self, infile: str, scale=None, resolution=None, outfile='outfile.mp4'):
+    def resize_single_video(self, infile: str, scale=None, resolution=None, quality=22, outfile='outfile.mp4'):
         if scale is None and resolution is None: return
 
         if scale is not None:
@@ -98,12 +102,12 @@ class VideoTool:
             , '-i', infile
             , '-vf', 'scale={}:{}, setsar=1:1'.format(newwidth, newheight)
             ]
-        cmd += self.h264quality
+        cmd += self._get_h264settings(quality)
         cmd += [outfile]
         subprocess.Popen(cmd).communicate()
 
     # --------------------------------------------
-    def cut_single_video(self, infile: str, startpoint='-1', endpoint='-1', outfile='outfile.mp4'):
+    def cut_single_video(self, infile: str, startpoint='-1', endpoint='-1', quality=22, outfile='outfile.mp4'):
         if startpoint == '-1' and endpoint == '-1': return
 
         cmd = [
@@ -113,12 +117,12 @@ class VideoTool:
         if startpoint != '-1': cmd += ['-ss', startpoint]
         if endpoint != '-1':   cmd += ['-to', endpoint]
 
-        cmd += self.h264quality
+        cmd += self._get_h264settings(quality)
         cmd += [outfile]
         subprocess.Popen(cmd).communicate()
 
     # --------------------------------------------
-    def split_video(self, infile, time='0', chunks=0) -> None:
+    def split_video(self, infile, time='0', chunks=0, quality=22) -> None:
         '''time in seconds (also in 1m/1h format)'''
         if chunks == 0 and time == '0': return
 
@@ -153,12 +157,8 @@ class VideoTool:
                 , '-segment_time', str(time)
                 ]
 
-        cmd += [
-            '-sc_threshold', '0'
-            , '-crf', '20'
-            , '-g', '9'
-            , '-force_key_frames', 'expr:gte(t,n_forced*9)'
-            ]
+        cmd += self._get_h264settings(quality)
+        cmd += ['-sc_threshold', '0']
         cmd += [outfile]
         subprocess.Popen(cmd).communicate()
 
@@ -221,7 +221,7 @@ class VideoTool:
         subprocess.Popen(cmd).communicate()
 
     # --------------------------------------------
-    def convert_to_x264(self, infile, outfile='outfile.mp4'):
+    def convert_to_x264(self, infile, quality=22, outfile='outfile.mp4'):
 
         # check video codec
         cmd = [
@@ -242,9 +242,7 @@ class VideoTool:
             self.bins['ffmpeg']
             , '-i', infile
             ]
-        cmd += ['-c:v', 'libx264']
-        cmd += self.h264quality
-        cmd += ['-pix_fmt', 'yuv420p']
+        cmd += self._get_h264settings(quality)
         cmd += [outfile]
         subprocess.Popen(cmd).communicate()
 
@@ -263,7 +261,7 @@ class VideoTool:
 
 
 if __name__ == '__main__':
-    ver = '1.4-rc3'
+    ver = '1.4-rc4'
     parser = argparse.ArgumentParser(description='%(prog)s - is a ffmpeg/ffprobe wrapper. https://github.com/qiwichupa/ffeasytool')
     subparser = parser.add_subparsers(title='COMMANDS', dest='command', required=True, help='''Check "%(prog)s COMMAND -h" for additional help''')
     cut = subparser.add_parser('cut', help='''Cut single video. Use -a and(or) -b parameters as  start and end points. Ex.: "%(prog)s cut -a 01:05 -b 02:53 myvideo.mp4" ''')
@@ -277,22 +275,27 @@ if __name__ == '__main__':
     version = subparser.add_parser('version', help='''Show version''')
 
     merge.add_argument('-f', type=str, default=None, metavar='F', help='video format string: 1280x720[@30]')
+    merge.add_argument('-q', type=int, default=22, help='Encoding quality from 51 (worst), to 0 (losless). Default: 22')
     merge.add_argument('file', nargs='+', help='files (space-separated) or name with wildcards.')
 
     resize.add_argument('-m', type=float, default=1, metavar='M', help='multiplier: 0.5, 2, 3.4, etc.')
     resize.add_argument('-r', type=str, default=None, metavar='F', help='resolution: 1280x720, etc.')
+    resize.add_argument('-q', type=int, default=22, help='Encoding quality from 51 (worst), to 0 (losless). Default: 22')
     resize.add_argument('file', nargs=1, help='file')
 
     cut.add_argument('-a', type=str, default='-1', help='start point in [HH:][MM:]SS[.m...] format')
     cut.add_argument('-b', type=str, default='-1', help='end point  in [HH:][MM:]SS[.m...] format')
+    cut.add_argument('-q', type=int, default=22, help='Encoding quality from 51 (worst), to 0 (losless). Default: 22')
     cut.add_argument('file', nargs=1, help='file')
 
-    split.add_argument('-t', type=str, default='0', help='chunks length (in seconds by default): 15, 2m, 1h')
+    split.add_argument('-t', type=str, required=True, help='chunks length (in seconds by default): 15, 2m, 1h')
+    split.add_argument('-q', type=int, default=22, help='Encoding quality from 51 (worst), to 0 (losless). Default: 22')
     split.add_argument('file', nargs=1, help='file')
 
     togif.add_argument('-x', type=int, default=10, metavar='X', help='fps for gif (default: 10)')
     togif.add_argument('file', nargs='+', help='file(s) (space-separated) or name with wildcards.')
 
+    to264.add_argument('-q', type=int, default=22, help='Encoding quality from 51 (worst), to 0 (losless). Default: 22')
     to264.add_argument('file', nargs='+', help='file(s) (space-separated) or name with wildcards.')
 
     towebm.add_argument('file', nargs='+', help='file(s) (space-separated) or name with wildcards.')
@@ -333,16 +336,13 @@ if __name__ == '__main__':
         infilebasename = os.path.basename(infile)
         outfile = '{}_resized.mp4'.format(os.path.splitext(infilebasename)[0])
         if args.m != 1:
-            videotool.resize_single_video(infile=infile, scale=args.m, outfile=outfile)
+            videotool.resize_single_video(infile=infile, scale=args.m, quality=args.q, outfile=outfile)
         elif args.r:
-            videotool.resize_single_video(infile=infile, resolution=args.r, outfile=outfile)
+            videotool.resize_single_video(infile=infile, resolution=args.r, quality=args.q, outfile=outfile)
     elif args.command == 'split':
         infile = files[0]
         infilebasename = os.path.basename(infile)
-        if args.t != '0':
-            videotool.split_video(infile=infile, time=args.t)
-        else:
-            print('use -t to set chunk length.')
+        videotool.split_video(infile=infile, time=args.t, quality=args.q)
     elif args.command == 'togif':
         for infile in files:
             infilebasename = os.path.basename(infile)
@@ -353,12 +353,12 @@ if __name__ == '__main__':
         for infile in files:
             infilebasename = os.path.basename(infile)
             outfile = '{}.mp4'.format(os.path.splitext(infilebasename)[0])
-            videotool.convert_to_x264(infile, outfile)
+            videotool.convert_to_x264(infile=infile, quality=args.q, outfile=outfile)
     elif args.command == 'towebm':
         for infile in files:
             infilebasename = os.path.basename(infile)
             outfile = '{}.webm'.format(os.path.splitext(infilebasename)[0])
-            videotool.convert_to_webm(infile, outfile)
+            videotool.convert_to_webm(infile=infile, outfile=outfile)
     elif args.command == 'cut':
         infile = files[0]
         infilebasename = os.path.basename(infile)
@@ -366,7 +366,7 @@ if __name__ == '__main__':
         if args.a == -1 and args.b == -1:
             print('use -a and(or) -b')
         else:
-            videotool.cut_single_video(infile=infile, startpoint=args.a, endpoint=args.b, outfile=outfile)
+            videotool.cut_single_video(infile=infile, startpoint=args.a, endpoint=args.b, quality=args.q, outfile=outfile)
     elif args.command == 'tomp3':
         tracknum = args.t - 1
         for infile in files:
@@ -384,4 +384,4 @@ if __name__ == '__main__':
         else:
             fps = int(fps[0])
         width, height = resolution.split('x')
-        videotool.avmerge(filestomerge, int(width), int(height), int(fps), outfile='myout.mp4')
+        videotool.avmerge(filestomerge, int(width), int(height), int(fps), quality=args.q, outfile='myout.mp4')
