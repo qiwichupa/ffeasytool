@@ -176,7 +176,7 @@ class VideoTool:
         subprocess.Popen(cmd).communicate()
 
     # --------------------------------------------
-    def convert_to_webm(self, infile, outfile='outfile.webm'):
+    def convert_to_webm(self, infile, quality=31, outfile='outfile.webm'):
 
         # check video codec
         cmdpv = [
@@ -211,10 +211,10 @@ class VideoTool:
             ]
         cmd += audioparams
         cmd += [
-            '-c:v', 'libvpx'
-            , '-q:v', '10'
-            , '-crf', '10'
-            , '-b:v', '1M'
+            '-c:v', 'libvpx-vp9'
+            , '-row-mt', '1'
+            , '-crf', str(quality)
+            , '-b:v', '15M'
             , '-auto-alt-ref', '0'
             ]
         cmd += [outfile]
@@ -261,7 +261,7 @@ class VideoTool:
 
 
 if __name__ == '__main__':
-    ver = '1.4-rc5'
+    ver = '1.4-rc6'
     parser = argparse.ArgumentParser(description='%(prog)s - is a ffmpeg/ffprobe wrapper. https://github.com/qiwichupa/ffeasytool')
     subparser = parser.add_subparsers(title='COMMANDS', dest='command', required=True, help='''Check "%(prog)s COMMAND -h" for additional help''')
     cut = subparser.add_parser('cut', help='''cut single video. Use -a and(or) -b parameters as  start and end points. Ex.: "%(prog)s cut -a 01:05 -b 02:53 myvideo.mp4" ''')
@@ -270,35 +270,36 @@ if __name__ == '__main__':
     split = subparser.add_parser('split', help='''split single video. Ex.: "%(prog)s split -t 5m myvideo.mp4" ''')
     to264 = subparser.add_parser('to264', help='''convert file(s) to mp4/h264. Ex.: "%(prog)s to264 *.wmv" ''')
     togif = subparser.add_parser('togif', help='''convert file(s) to gif. Ex.: "%(prog)s togif -x 5 *.mp4" ''')
-    towebm = subparser.add_parser('towebm', help='''convert file(s) to webm. Ex.: "%(prog)s towebm *.mp4" ''')
+    towebm = subparser.add_parser('towebm', help='''convert file(s) to webm/vp9. Ex.: "%(prog)s towebm *.mp4" ''')
     tomp3 = subparser.add_parser('tomp3', help='''extract audio to mp3. Ex.: "%(prog)s tomp3 -t 2 *.mp4" ''')
     version = subparser.add_parser('version', help='''show version''')
 
     merge.add_argument('-f', type=str, required=True, metavar='1280x720[@30]', help='output video format')
-    merge.add_argument('-q', type=int, default=22, metavar='22', help='quality from 51 (worst), to 0 (best). Default: 22')
+    merge.add_argument('-q', type=int, default=22, metavar='22', help='quality from 51 (worst), to 0 (best). Recommended: 28-17. Default: 22')
     merge.add_argument('file', nargs='+', help='filenames (space-separated) or name with wildcards')
 
     resizegroup = resize.add_mutually_exclusive_group(required=True)
     resizegroup.add_argument('-m', type=float, default=1, metavar='1.5', help='multiplier. Ex.: 0.5, 2, 3.4, etc.')
     resizegroup.add_argument('-r', type=str, default=None, metavar='1280x720', help='resolution')
-    resize.add_argument('-q', type=int, default=22, metavar='22', help='quality from 51 (worst), to 0 (best). Default: 22')
+    resize.add_argument('-q', type=int, default=22, metavar='22', help='quality from 51 (worst), to 0 (best). Recommended: 28-17. Default: 22')
     resize.add_argument('file', nargs=1, help='filename')
 
     cut.add_argument('-a', type=str, default='-1', metavar='[HH:][MM:]SS[.mmm]', help='start point. Ex.: 50:05.600 (50 min, 5 sec, 600 ms)')
     cut.add_argument('-b', type=str, default='-1', metavar='[HH:][MM:]SS[.mmm]', help='end point. Ex.: 01:05:00 (1 hour, 5 min)')
-    cut.add_argument('-q', type=int, default=22, metavar='22', help='quality from 51 (worst), to 0 (best). Default: 22')
+    cut.add_argument('-q', type=int, default=22, metavar='22', help='quality from 51 (worst), to 0 (best). Recommended: 28-17. Default: 22')
     cut.add_argument('file', nargs=1, help='filename')
 
     split.add_argument('-t', type=str, required=True, metavar='20m', help='chunks length (in sec by default). Ex.: 15, 2m, 1h')
-    split.add_argument('-q', type=int, default=22, metavar='22', help='quality from 51 (worst), to 0 (best). Default: 22')
+    split.add_argument('-q', type=int, default=22, metavar='22', help='quality from 51 (worst), to 0 (best). Recommended: 28-17. Default: 22')
     split.add_argument('file', nargs=1, help='filename')
 
     togif.add_argument('-x', type=int, default=10, metavar='10', help='framerate for gif (default: 10)')
     togif.add_argument('file', nargs='+', help='filename(s) (space-separated) or name with wildcards')
 
-    to264.add_argument('-q', type=int, default=22, metavar='22', help='quality from 51 (worst), to 0 (best). Default: 22')
+    to264.add_argument('-q', type=int, default=22, metavar='22', help='quality from 51 (worst), to 0 (best). Recommended: 28-17. Default: 22')
     to264.add_argument('file', nargs='+', help='filename(s) (space-separated) or name with wildcards')
 
+    towebm.add_argument('-q', type=int, default=30, metavar='30', help='quality from 63 (worst), to 0 (best). Recommended: 35-15. Default: 30')
     towebm.add_argument('file', nargs='+', help='filename(s) (space-separated) or name with wildcards')
 
     tomp3.add_argument('-t', type=int, default=1, metavar='1', help='track number (default: 1)')
@@ -359,7 +360,7 @@ if __name__ == '__main__':
         for infile in files:
             infilebasename = os.path.basename(infile)
             outfile = '{}.webm'.format(os.path.splitext(infilebasename)[0])
-            videotool.convert_to_webm(infile=infile, outfile=outfile)
+            videotool.convert_to_webm(infile=infile, quality=args.q, outfile=outfile)
     elif args.command == 'cut':
         infile = files[0]
         infilebasename = os.path.basename(infile)
