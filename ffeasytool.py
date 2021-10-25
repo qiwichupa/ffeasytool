@@ -261,47 +261,48 @@ class VideoTool:
 
 
 if __name__ == '__main__':
-    ver = '1.4-rc4'
+    ver = '1.4-rc5'
     parser = argparse.ArgumentParser(description='%(prog)s - is a ffmpeg/ffprobe wrapper. https://github.com/qiwichupa/ffeasytool')
     subparser = parser.add_subparsers(title='COMMANDS', dest='command', required=True, help='''Check "%(prog)s COMMAND -h" for additional help''')
-    cut = subparser.add_parser('cut', help='''Cut single video. Use -a and(or) -b parameters as  start and end points. Ex.: "%(prog)s cut -a 01:05 -b 02:53 myvideo.mp4" ''')
-    merge = subparser.add_parser('merge', help='''Merge video files. Ex.: "%(prog)s merge -f 1280x720 *.mp4" ''')
-    resize = subparser.add_parser('resize', help='''Resize single video. Ex.: "%(prog)s resize -m 0.5 myvideo.mp4",  "%(prog)s resize -r 1280x720 myvideo.mp4"''')
-    split = subparser.add_parser('split', help='''Split single video. Ex.: "%(prog)s split -t 5m myvideo.mp4" ''')
-    to264 = subparser.add_parser('to264', help='''Convert file(s) to mp4/h264. Ex.: "%(prog)s to264 *.wmv" ''')
-    togif = subparser.add_parser('togif', help='''Convert file(s) to gif. Ex.: "%(prog)s togif -x 5 *.mp4" ''')
-    towebm = subparser.add_parser('towebm', help='''Convert file(s) to webm. Ex.: "%(prog)s towebm *.mp4" ''')
-    tomp3 = subparser.add_parser('tomp3', help='''Extract audio to mp3. Ex.: "%(prog)s tomp3 -t 2 *.mp4" ''')
-    version = subparser.add_parser('version', help='''Show version''')
+    cut = subparser.add_parser('cut', help='''cut single video. Use -a and(or) -b parameters as  start and end points. Ex.: "%(prog)s cut -a 01:05 -b 02:53 myvideo.mp4" ''')
+    merge = subparser.add_parser('merge', help='''merge video files. Ex.: "%(prog)s merge -f 1280x720 *.mp4" ''')
+    resize = subparser.add_parser('resize', help='''resize single video. Ex.: "%(prog)s resize -m 0.5 myvideo.mp4",  "%(prog)s resize -r 1280x720 myvideo.mp4"''')
+    split = subparser.add_parser('split', help='''split single video. Ex.: "%(prog)s split -t 5m myvideo.mp4" ''')
+    to264 = subparser.add_parser('to264', help='''convert file(s) to mp4/h264. Ex.: "%(prog)s to264 *.wmv" ''')
+    togif = subparser.add_parser('togif', help='''convert file(s) to gif. Ex.: "%(prog)s togif -x 5 *.mp4" ''')
+    towebm = subparser.add_parser('towebm', help='''convert file(s) to webm. Ex.: "%(prog)s towebm *.mp4" ''')
+    tomp3 = subparser.add_parser('tomp3', help='''extract audio to mp3. Ex.: "%(prog)s tomp3 -t 2 *.mp4" ''')
+    version = subparser.add_parser('version', help='''show version''')
 
-    merge.add_argument('-f', type=str, default=None, metavar='F', help='video format string: 1280x720[@30]')
-    merge.add_argument('-q', type=int, default=22, help='Encoding quality from 51 (worst), to 0 (losless). Default: 22')
-    merge.add_argument('file', nargs='+', help='files (space-separated) or name with wildcards.')
+    merge.add_argument('-f', type=str, required=True, metavar='1280x720[@30]', help='output video format')
+    merge.add_argument('-q', type=int, default=22, metavar='22', help='quality from 51 (worst), to 0 (best). Default: 22')
+    merge.add_argument('file', nargs='+', help='filenames (space-separated) or name with wildcards')
 
-    resize.add_argument('-m', type=float, default=1, metavar='M', help='multiplier: 0.5, 2, 3.4, etc.')
-    resize.add_argument('-r', type=str, default=None, metavar='F', help='resolution: 1280x720, etc.')
-    resize.add_argument('-q', type=int, default=22, help='Encoding quality from 51 (worst), to 0 (losless). Default: 22')
-    resize.add_argument('file', nargs=1, help='file')
+    resizegroup = resize.add_mutually_exclusive_group(required=True)
+    resizegroup.add_argument('-m', type=float, default=1, metavar='1.5', help='multiplier. Ex.: 0.5, 2, 3.4, etc.')
+    resizegroup.add_argument('-r', type=str, default=None, metavar='1280x720', help='resolution')
+    resize.add_argument('-q', type=int, default=22, metavar='22', help='quality from 51 (worst), to 0 (best). Default: 22')
+    resize.add_argument('file', nargs=1, help='filename')
 
-    cut.add_argument('-a', type=str, default='-1', help='start point in [HH:][MM:]SS[.m...] format')
-    cut.add_argument('-b', type=str, default='-1', help='end point  in [HH:][MM:]SS[.m...] format')
-    cut.add_argument('-q', type=int, default=22, help='Encoding quality from 51 (worst), to 0 (losless). Default: 22')
-    cut.add_argument('file', nargs=1, help='file')
+    cut.add_argument('-a', type=str, default='-1', metavar='[HH:][MM:]SS[.mmm]', help='start point. Ex.: 50:05.600 (50 min, 5 sec, 600 ms)')
+    cut.add_argument('-b', type=str, default='-1', metavar='[HH:][MM:]SS[.mmm]', help='end point. Ex.: 01:05:00 (1 hour, 5 min)')
+    cut.add_argument('-q', type=int, default=22, metavar='22', help='Quality from 51 (worst), to 0 (best). Default: 22')
+    cut.add_argument('file', nargs=1, help='filename')
 
-    split.add_argument('-t', type=str, required=True, help='chunks length (in seconds by default): 15, 2m, 1h')
-    split.add_argument('-q', type=int, default=22, help='Encoding quality from 51 (worst), to 0 (losless). Default: 22')
-    split.add_argument('file', nargs=1, help='file')
+    split.add_argument('-t', type=str, required=True, metavar='20m', help='chunks length (in sec by default). Ex.: 15, 2m, 1h')
+    split.add_argument('-q', type=int, default=22, metavar='22', help='quality from 51 (worst), to 0 (best). Default: 22')
+    split.add_argument('file', nargs=1, help='filename')
 
-    togif.add_argument('-x', type=int, default=10, metavar='X', help='fps for gif (default: 10)')
-    togif.add_argument('file', nargs='+', help='file(s) (space-separated) or name with wildcards.')
+    togif.add_argument('-x', type=int, default=10, metavar='10', help='framerate for gif (default: 10)')
+    togif.add_argument('file', nargs='+', help='filename(s) (space-separated) or name with wildcards')
 
-    to264.add_argument('-q', type=int, default=22, help='Encoding quality from 51 (worst), to 0 (losless). Default: 22')
-    to264.add_argument('file', nargs='+', help='file(s) (space-separated) or name with wildcards.')
+    to264.add_argument('-q', type=int, default=22, metavar='22', help='quality from 51 (worst), to 0 (best). Default: 22')
+    to264.add_argument('file', nargs='+', help='filename(s) (space-separated) or name with wildcards')
 
-    towebm.add_argument('file', nargs='+', help='file(s) (space-separated) or name with wildcards.')
+    towebm.add_argument('file', nargs='+', help='filename(s) (space-separated) or name with wildcards')
 
-    tomp3.add_argument('-t', type=int, default=1, metavar='T', help='track (default: 1)')
-    tomp3.add_argument('file', nargs='+', help='file(s) (space-separated) or name with wildcards.')
+    tomp3.add_argument('-t', type=int, default=1, metavar='1', help='track number (default: 1)')
+    tomp3.add_argument('file', nargs='+', help='filename(s) (space-separated) or name with wildcards.')
 
     args = parser.parse_args()
 
@@ -374,9 +375,6 @@ if __name__ == '__main__':
             outfile = '{}.mp3'.format(os.path.splitext(infilebasename)[0])
             videotool.convert_to_mp3(infile, tracknum, outfile)
     elif args.command == 'merge':
-        if args.f is None:
-            print('use -f to set resolution (-f 1280x720[@30])')
-            exit(1)
         filestomerge = files
         resolution, *fps = args.f.split('@')
         if len(fps) < 1:
