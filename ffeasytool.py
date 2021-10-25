@@ -286,7 +286,7 @@ if __name__ == '__main__':
 
     cut.add_argument('-a', type=str, default='-1', metavar='[HH:][MM:]SS[.mmm]', help='start point. Ex.: 50:05.600 (50 min, 5 sec, 600 ms)')
     cut.add_argument('-b', type=str, default='-1', metavar='[HH:][MM:]SS[.mmm]', help='end point. Ex.: 01:05:00 (1 hour, 5 min)')
-    cut.add_argument('-q', type=int, default=22, metavar='22', help='Quality from 51 (worst), to 0 (best). Default: 22')
+    cut.add_argument('-q', type=int, default=22, metavar='22', help='quality from 51 (worst), to 0 (best). Default: 22')
     cut.add_argument('file', nargs=1, help='filename')
 
     split.add_argument('-t', type=str, required=True, metavar='20m', help='chunks length (in sec by default). Ex.: 15, 2m, 1h')
