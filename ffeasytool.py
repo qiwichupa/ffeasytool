@@ -384,4 +384,4 @@ if __name__ == '__main__':
         else:
             fps = int(fps[0])
         width, height = resolution.split('x')
-        videotool.avmerge(filestomerge, int(width), int(height), int(fps), quality=args.q, outfile='myout.mp4')
+        videotool.avmerge(filestomerge, int(width), int(height), int(fps), quality=args.q, outfile='outfile_merged.mp4')
