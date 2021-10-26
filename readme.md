@@ -16,7 +16,7 @@ The main features are:
 #### resize (to 1280x720)
 `ffeasytool.py resize -r 1280x720 myvideo.mp4`
 
-#### resize (half-size):
+#### resize (half-size)
 `ffeasytool.py resize -m 0.5 myvideo.mp4`
 
 #### cut from 1 min 5 sec to 2 min 53 sec
