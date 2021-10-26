@@ -247,13 +247,14 @@ class VideoTool:
         subprocess.Popen(cmd).communicate()
 
     # --------------------------------------------
-    def convert_to_mp3(self, infile, track=0, outfile='outfile.mp3'):
+    def convert_to_mp3(self, infile, track=0, quality=4, outfile='outfile.mp3'):
         cmd = [
             self.bins['ffmpeg']
             , '-i', infile]
         cmd += [
             '-map', '0:a:{}'.format(track)
             , '-c:a', 'libmp3lame'
+            , '-q:a', str(quality)
             , '-ar', '48000'
             ]
         cmd += [outfile]
@@ -261,9 +262,10 @@ class VideoTool:
 
 
 if __name__ == '__main__':
-    ver = '1.4-rc7'
+    ver = '1.4-rc8'
     H264CRF = 22
     VP9CRF = 30
+    LAMEQUAL = 4
     parser = argparse.ArgumentParser(description='%(prog)s - is a ffmpeg/ffprobe wrapper. https://github.com/qiwichupa/ffeasytool')
     subparser = parser.add_subparsers(title='COMMANDS', dest='command', required=True, help='''Check "%(prog)s COMMAND -h" for additional help''')
     cut = subparser.add_parser('cut', help='''cut single video. Use -a and(or) -b parameters as  start and end points. Ex.: "%(prog)s cut -a 01:05 -b 02:53 myvideo.mp4" ''')
@@ -305,6 +307,7 @@ if __name__ == '__main__':
     towebm.add_argument('file', nargs='+', help='filename(s) (space-separated) or name with wildcards')
 
     tomp3.add_argument('-t', type=int, default=1, metavar='1', help='track number (default: 1)')
+    tomp3.add_argument('-q', type=int, default=LAMEQUAL, metavar='{}'.format(LAMEQUAL), help='quality from 9 (worst), to 0 (best).  Default: {}'.format(LAMEQUAL))
     tomp3.add_argument('file', nargs='+', help='filename(s) (space-separated) or name with wildcards.')
 
     args = parser.parse_args()
@@ -376,7 +379,7 @@ if __name__ == '__main__':
         for infile in files:
             infilebasename = os.path.basename(infile)
             outfile = '{}.mp3'.format(os.path.splitext(infilebasename)[0])
-            videotool.convert_to_mp3(infile, tracknum, outfile)
+            videotool.convert_to_mp3(infile=infile, track=tracknum, quality=args.q, outfile=outfile)
     elif args.command == 'merge':
         filestomerge = files
         resolution, *fps = args.f.split('@')
