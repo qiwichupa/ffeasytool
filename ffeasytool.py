@@ -262,7 +262,7 @@ class VideoTool:
 
 
 if __name__ == '__main__':
-    ver = '1.4-rc8'
+    ver = '1.4'
     H264CRF = 22
     VP9CRF = 30
     LAMEQUAL = 4
