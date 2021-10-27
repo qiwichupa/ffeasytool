@@ -19,6 +19,7 @@ class VideoTool:
     def _get_h264settings(self, quality):
         return [
             '-c:v', 'libx264'
+            , '-sn'
             , '-crf', str(quality)
             , '-preset', 'fast'
             , '-g', '30'
@@ -262,7 +263,7 @@ class VideoTool:
 
 
 if __name__ == '__main__':
-    ver = '1.4'
+    ver = '1.4.1'
     H264CRF = 22
     VP9CRF = 30
     LAMEQUAL = 4
