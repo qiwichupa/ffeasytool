@@ -5,7 +5,7 @@ import glob
 import os
 import subprocess
 import sys
-
+import math
 
 class VideoTool:
     bins = {}
@@ -63,6 +63,99 @@ class VideoTool:
         cmd += self._get_h264settings(quality)
         cmd += [outfile]
         subprocess.Popen(cmd).communicate()
+
+    # --------------------------------------------
+    def compress_single_video(self, infile: str, targetsize: str, outfile='outfile.mp4'):
+        # convert target size to bytes
+        sizeerror='Use size format: 1024 - 1024 bytes, 1K - 1 kilobyte, 1M - 1 megabyte, 1G - 1 gigabyte'
+        if targetsize.endswith('K'):
+            try:
+                targetsize = int(targetsize[:-1]) * 1024
+            except Exception as e:
+                print('{}\n\n{}.'.format(e, sizeerror))
+        elif targetsize.endswith('M'):
+            try:
+                targetsize = int(targetsize[:-1]) * (1024 ** 2)
+            except Exception as e:
+                print('{}\n\n{}.'.format(e, sizeerror))
+        elif targetsize.endswith('G'):
+            try:
+                targetsize = int(targetsize[:-1]) * (1024 ** 3)
+            except Exception as e:
+                print('{}\n\n{}.'.format(e, sizeerror))
+        else:
+            try:
+                targetsize = int(targetsize)
+            except Exception as e:
+                print('{}\n\n{}.'.format(e, sizeerror))
+
+        # find video duration in seconds
+        cmd = [self.bins['ffprobe']
+             , '-v'
+             , 'error'
+             , '-show_entries'
+             , 'format=duration'
+             , '-of'
+             , 'csv=p=0'
+             , infile]
+        out, err = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True).communicate()
+        duration = float(out.strip())
+
+        # get audio rate in bits per seconds
+        cmd = [self.bins['ffprobe']
+             , '-v'
+             , 'error'
+             , '-select_streams'
+             , 'a:0'
+             , '-show_entries'
+             , 'stream=bit_rate'
+             , '-of'
+             , 'csv=p=0'
+             , infile]
+        out, err = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True).communicate()
+        abitrate = float(out.strip())
+
+        # check if target size is smaller than audio size
+        audiosize =  duration * (abitrate/8) # bytes
+        if targetsize <= audiosize:
+            print("Target size is too small. Must be bigger than {} bytes".format(audiosize))
+            return
+
+        targetvbitrate = math.floor((targetsize * 8)/( 1.048576 * duration ) - math.ceil(abitrate))
+
+        # pass 1
+        cmd = [self.bins['ffmpeg']
+             , '-y'
+             , '-i'
+             , infile
+             , '-c:v'
+             , 'libx264'
+             , '-b:v'
+             , '{}k'.format(str(math.floor(targetvbitrate/1000)))
+             , '-pass'
+             , '1'
+             , '-f'
+             , 'mp4'
+             , '/dev/null']
+        subprocess.Popen(cmd).communicate()
+        # pass 2
+        cmd = [self.bins['ffmpeg']
+            , '-y' 
+            , '-i'
+             , infile
+             , '-c:v'
+             , 'libx264'
+             , '-b:v'
+             , '{}k'.format(str(math.floor(targetvbitrate/1000)))
+             , '-pass'
+             , '2'
+             , '-c:a'
+             , 'aac'
+             , '-b:a'
+             , '{}k'.format(str(math.floor(abitrate/1000)))
+             , outfile]
+        subprocess.Popen(cmd).communicate()
+
 
     # --------------------------------------------
     def resize_single_video(self, infile: str, scale=None, resolution=None, quality=22, outfile='outfile.mp4'):
@@ -263,7 +356,7 @@ class VideoTool:
 
 
 if __name__ == '__main__':
-    ver = '1.4.1'
+    ver = '1.5-rc1'
     H264CRF = 22
     VP9CRF = 30
     LAMEQUAL = 4
@@ -271,6 +364,7 @@ if __name__ == '__main__':
     subparser = parser.add_subparsers(title='COMMANDS', dest='command', required=True, help='''Check "%(prog)s COMMAND -h" for additional help''')
     cut = subparser.add_parser('cut', help='''cut single video. Use -a and(or) -b parameters as  start and end points. Ex.: "%(prog)s cut -a 01:05 -b 02:53 myvideo.mp4" ''')
     merge = subparser.add_parser('merge', help='''merge video files. Ex.: "%(prog)s merge -f 1280x720 *.mp4" ''')
+    compress = subparser.add_parser('compress', help='''compress single video to size. Ex.: "%(prog)s compress -s 8M myvideo.mp4"''')
     resize = subparser.add_parser('resize', help='''resize single video. Ex.: "%(prog)s resize -m 0.5 myvideo.mp4",  "%(prog)s resize -r 1280x720 myvideo.mp4"''')
     split = subparser.add_parser('split', help='''split single video. Ex.: "%(prog)s split -t 5m myvideo.mp4" ''')
     to264 = subparser.add_parser('to264', help='''convert file(s) to mp4/h264. Ex.: "%(prog)s to264 *.wmv" ''')
@@ -282,6 +376,9 @@ if __name__ == '__main__':
     merge.add_argument('-f', type=str, required=True, metavar='1280x720[@30]', help='output video format')
     merge.add_argument('-q', type=int, default=H264CRF, metavar='{}'.format(H264CRF), help='quality from 51 (worst), to 0 (best). Recommended: 28-17. Default: {}'.format(H264CRF))
     merge.add_argument('file', nargs='+', help='filenames (space-separated) or name with wildcards')
+
+    compress.add_argument('-s', type=str,required=True, metavar='1024', help='target size (in bytes by default). Ex.: 1024, 512K, 2M, 1G')
+    compress.add_argument('file', nargs='+', help='filename(s) (space-separated) or name with wildcards')
 
     resizegroup = resize.add_mutually_exclusive_group(required=True)
     resizegroup.add_argument('-m', type=float, default=1, metavar='1.5', help='multiplier. Ex.: 0.5, 2, 3.4, etc.')
@@ -347,6 +444,11 @@ if __name__ == '__main__':
             videotool.resize_single_video(infile=infile, scale=args.m, quality=args.q, outfile=outfile)
         elif args.r:
             videotool.resize_single_video(infile=infile, resolution=args.r, quality=args.q, outfile=outfile)
+    elif args.command == 'compress':
+        infile = files[0]
+        infilebasename = os.path.basename(infile)
+        outfile = '{}_compressed.mp4'.format(os.path.splitext(infilebasename)[0])
+        videotool.compress_single_video(infile=infile, targetsize=args.s, outfile=outfile)
     elif args.command == 'split':
         infile = files[0]
         infilebasename = os.path.basename(infile)
@@ -390,3 +492,4 @@ if __name__ == '__main__':
             fps = int(fps[0])
         width, height = resolution.split('x')
         videotool.avmerge(filestomerge, int(width), int(height), int(fps), quality=args.q, outfile='outfile_merged.mp4')
+
