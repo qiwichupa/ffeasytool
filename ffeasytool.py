@@ -5,7 +5,10 @@ import glob
 import os
 import subprocess
 import sys
+import platform
 import math
+import string
+import random
 
 class VideoTool:
     bins = {}
@@ -65,27 +68,37 @@ class VideoTool:
         subprocess.Popen(cmd).communicate()
 
     # --------------------------------------------
-    def compress_single_video(self, infile: str, targetsize: str, outfile='outfile.mp4'):
+    def compress_single_video(self, infile: str, targetsize: str, audiobitrate=None, containerfactor=1.048576, outfile='outfile.mp4'):
+        # platform check
+        if platform.system() == "Linux":
+            devnull = '/dev/null'
+        elif platform.system() == "Windows":
+            devnull = 'NUL'
+
         # convert target size to bytes
         sizeerror='Use size format: 1024 - 1024 bytes, 1K - 1 kilobyte, 1M - 1 megabyte, 1G - 1 gigabyte'
         if targetsize.endswith('K'):
             try:
                 targetsize = int(targetsize[:-1]) * 1024
+                sizein = 'Kb'
             except Exception as e:
                 print('{}\n\n{}.'.format(e, sizeerror))
         elif targetsize.endswith('M'):
             try:
                 targetsize = int(targetsize[:-1]) * (1024 ** 2)
+                sizein = 'Mb'
             except Exception as e:
                 print('{}\n\n{}.'.format(e, sizeerror))
         elif targetsize.endswith('G'):
             try:
                 targetsize = int(targetsize[:-1]) * (1024 ** 3)
+                sizein = 'Gb'
             except Exception as e:
                 print('{}\n\n{}.'.format(e, sizeerror))
         else:
             try:
                 targetsize = int(targetsize)
+                sizein = 'B'
             except Exception as e:
                 print('{}\n\n{}.'.format(e, sizeerror))
 
@@ -102,27 +115,39 @@ class VideoTool:
         duration = float(out.strip())
 
         # get audio rate in bits per seconds
-        cmd = [self.bins['ffprobe']
-             , '-v'
-             , 'error'
-             , '-select_streams'
-             , 'a:0'
-             , '-show_entries'
-             , 'stream=bit_rate'
-             , '-of'
-             , 'csv=p=0'
-             , infile]
-        out, err = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True).communicate()
-        abitrate = float(out.strip())
+        if audiobitrate is None:
+            cmd = [self.bins['ffprobe']
+                , '-v'
+                , 'error'
+                , '-select_streams'
+                , 'a:0'
+                , '-show_entries'
+                , 'stream=bit_rate'
+                , '-of'
+                , 'csv=p=0'
+                , infile]
+            out, err = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True).communicate()
+            audiobps = float(out.strip())
+        else:
+            audiobps = audiobitrate * 1000
 
         # check if target size is smaller than audio size
-        audiosize =  duration * (abitrate/8) # bytes
-        if targetsize <= audiosize:
-            print("Target size is too small. Must be bigger than {} bytes".format(audiosize))
-            return
+        audiosize =  duration * (audiobps/8) # bytes
+        if  targetsize <= ( audiosize * containerfactor ):
+            if sizein == 'B':
+                errsize = math.ceil(audiosize * containerfactor)
+            elif sizein == 'Kb':
+                errsize = math.ceil(audiosize * containerfactor/1024)
+            elif sizein == 'Mb':
+                errsize = math.ceil(audiosize * containerfactor/1024 ** 2)
+            elif sizein == 'Gb':
+                errsize = math.ceil(audiosize * containerfactor/1024 ** 3)
+            raise RuntimeError("TARGET SIZE IS TOO SMALL!\nAudio track size: ~{asize} {sizein} with {audiokbps} kbps. \nTry target size {errsize} {sizein} and more".format(asize=errsize-1, audiokbps=math.ceil(audiobps/1000), errsize=errsize, sizein=sizein))
 
-        targetvbitrate = math.floor((targetsize * 8)/( 1.048576 * duration ) - math.ceil(abitrate))
+        # calculate bitrate
+        videobps = ( targetsize * 8 )/( containerfactor * duration ) - math.floor(audiobps)
 
+        ffmpeglogname = 'tmp-passlogfile-{}'.format(''.join(random.choices(string.ascii_uppercase + string.digits, k=6)))
         # pass 1
         cmd = [self.bins['ffmpeg']
              , '-y'
@@ -131,12 +156,14 @@ class VideoTool:
              , '-c:v'
              , 'libx264'
              , '-b:v'
-             , '{}k'.format(str(math.floor(targetvbitrate/1000)))
+             , '{}k'.format(str(math.floor(videobps/1000)))
              , '-pass'
              , '1'
+             , '-passlogfile'
+             , ffmpeglogname
              , '-f'
              , 'mp4'
-             , '/dev/null']
+             , devnull]
         subprocess.Popen(cmd).communicate()
         # pass 2
         cmd = [self.bins['ffmpeg']
@@ -146,16 +173,26 @@ class VideoTool:
              , '-c:v'
              , 'libx264'
              , '-b:v'
-             , '{}k'.format(str(math.floor(targetvbitrate/1000)))
+             , '{}k'.format(str(math.floor(videobps/1000)))
              , '-pass'
              , '2'
+             , '-passlogfile'
+             , ffmpeglogname
              , '-c:a'
              , 'aac'
              , '-b:a'
-             , '{}k'.format(str(math.floor(abitrate/1000)))
+             , '{}k'.format(str(math.floor(audiobps/1000)))
              , outfile]
         subprocess.Popen(cmd).communicate()
 
+        try:
+            os.remove("{}-0.log.mbtree".format(ffmpeglogname))
+        except OSError:
+            pass
+        try:
+            os.remove("{}-0.log".format(ffmpeglogname))
+        except OSError:
+            pass
 
     # --------------------------------------------
     def resize_single_video(self, infile: str, scale=None, resolution=None, quality=22, outfile='outfile.mp4'):
@@ -356,7 +393,7 @@ class VideoTool:
 
 
 if __name__ == '__main__':
-    ver = '1.5-rc1'
+    ver = '1.5-rc2'
     H264CRF = 22
     VP9CRF = 30
     LAMEQUAL = 4
@@ -377,7 +414,8 @@ if __name__ == '__main__':
     merge.add_argument('-q', type=int, default=H264CRF, metavar='{}'.format(H264CRF), help='quality from 51 (worst), to 0 (best). Recommended: 28-17. Default: {}'.format(H264CRF))
     merge.add_argument('file', nargs='+', help='filenames (space-separated) or name with wildcards')
 
-    compress.add_argument('-s', type=str,required=True, metavar='1024', help='target size (in bytes by default). Ex.: 1024, 512K, 2M, 1G')
+    compress.add_argument('-s', type=str,required=True, metavar='2M', help='target size (in bytes by default). Ex.: 1024, 512K, 2M, 1G')
+    compress.add_argument('-a', type=int, metavar='128', help='audio bitrate in kbps. By default it is taken from the source file.')
     compress.add_argument('file', nargs='+', help='filename(s) (space-separated) or name with wildcards')
 
     resizegroup = resize.add_mutually_exclusive_group(required=True)
@@ -448,7 +486,10 @@ if __name__ == '__main__':
         infile = files[0]
         infilebasename = os.path.basename(infile)
         outfile = '{}_compressed.mp4'.format(os.path.splitext(infilebasename)[0])
-        videotool.compress_single_video(infile=infile, targetsize=args.s, outfile=outfile)
+        if args.a:
+            videotool.compress_single_video(infile=infile, targetsize=args.s, audiobitrate=args.a, outfile=outfile)
+        else:
+            videotool.compress_single_video(infile=infile, targetsize=args.s, outfile=outfile)
     elif args.command == 'split':
         infile = files[0]
         infilebasename = os.path.basename(infile)
