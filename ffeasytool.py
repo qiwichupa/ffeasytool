@@ -9,14 +9,27 @@ import platform
 import math
 import string
 import random
+from shutil import which
 
 class VideoTool:
     bins = {}
 
     # --------------------------------------------
     def __init__(self, ffmpeg='ffmpeg', ffprobe='ffprobe'):
-        self.bins['ffmpeg'] = ffmpeg
-        self.bins['ffprobe'] = ffprobe
+        self.bins['ffmpeg'] = which(ffmpeg)
+        self.bins['ffprobe'] = which(ffprobe)
+
+        # check bins
+        binsfailed = False
+        if self.bins['ffmpeg'] is None:
+            binsfailed = True
+            print("ffmpeg executable is not found.")
+        if self.bins['ffprobe'] is None:
+            binsfailed = True
+            print("ffprobe executable is not found.")
+        if binsfailed:
+            print('You should install ffmpeg and ffprobe. Place binaries into PATH directory.')
+            sys.exit(1)
 
     # --------------------------------------------
     def _get_h264settings(self, quality):
@@ -29,6 +42,19 @@ class VideoTool:
             , '-force_key_frames', 'expr:gte(t,n_forced*18)'
             , '-pix_fmt', 'yuv420p'
             ]
+
+    def show_versions(self):
+        try:
+            out, err = subprocess.Popen([self.bins['ffmpeg'], '-version'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True).communicate()
+            ffmpegver = '{}'.format(out.split('\n')[0].split(' ')[2])
+        except:
+            ffmpegver = 'ffmpeg not found (check PATH environment variable)'
+        try:
+            out, err = subprocess.Popen([self.bins['ffprobe'], '-version'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True).communicate()
+            ffprobever = '{}'.format(out.split('\n')[0].split(' ')[2])
+        except:
+            ffprobever = 'ffprobe not found (check PATH environment variable)'
+        return self.bins['ffmpeg'], ffmpegver, self.bins['ffprobe'], ffprobever
 
     # --------------------------------------------
     def avmerge(self, files, maxWidth=1920, maxHeight=1080, frameRate=30, quality=22, outfile='outfile.mp4'):
@@ -127,7 +153,11 @@ class VideoTool:
                 , 'csv=p=0'
                 , infile]
             out, err = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True).communicate()
-            audiobps = float(out.strip())
+            try:
+                audiobps = float(out.strip())
+            except:
+                # sometimes ffprobe return N/A
+                audiobps = 128 * 1000
         else:
             audiobps = audiobitrate * 1000
 
@@ -142,7 +172,7 @@ class VideoTool:
                 errsize = math.ceil(audiosize * containerfactor/1024 ** 2)
             elif sizein == 'Gb':
                 errsize = math.ceil(audiosize * containerfactor/1024 ** 3)
-            raise RuntimeError("TARGET SIZE IS TOO SMALL!\nAudio track size: ~{asize} {sizein} with {audiokbps} kbps. \nTry target size {errsize} {sizein} and more".format(asize=errsize-1, audiokbps=math.ceil(audiobps/1000), errsize=errsize, sizein=sizein))
+            raise RuntimeError("TARGET SIZE IS TOO SMALL!\nAudio track size: ~{asize} {sizein} with {audiokbps} kbps. \nTry target size {errsize} {sizein}. Increase it if an encoding error appears.".format(asize=errsize-1, audiokbps=math.ceil(audiobps/1000), errsize=errsize, sizein=sizein))
 
         # calculate bitrate
         videobps = ( targetsize * 8 )/( containerfactor * duration ) - math.floor(audiobps)
@@ -393,21 +423,21 @@ class VideoTool:
 
 
 if __name__ == '__main__':
-    ver = '1.5-rc2'
+    ver = '1.5-rc3'
     H264CRF = 22
     VP9CRF = 30
     LAMEQUAL = 4
     parser = argparse.ArgumentParser(description='%(prog)s - is a ffmpeg/ffprobe wrapper. https://github.com/qiwichupa/ffeasytool')
     subparser = parser.add_subparsers(title='COMMANDS', dest='command', required=True, help='''Check "%(prog)s COMMAND -h" for additional help''')
+    compress = subparser.add_parser('compress', help='''compress single video to size. Ex.: "%(prog)s compress -s 8M myvideo.mp4"''')
     cut = subparser.add_parser('cut', help='''cut single video. Use -a and(or) -b parameters as  start and end points. Ex.: "%(prog)s cut -a 01:05 -b 02:53 myvideo.mp4" ''')
     merge = subparser.add_parser('merge', help='''merge video files. Ex.: "%(prog)s merge -f 1280x720 *.mp4" ''')
-    compress = subparser.add_parser('compress', help='''compress single video to size. Ex.: "%(prog)s compress -s 8M myvideo.mp4"''')
     resize = subparser.add_parser('resize', help='''resize single video. Ex.: "%(prog)s resize -m 0.5 myvideo.mp4",  "%(prog)s resize -r 1280x720 myvideo.mp4"''')
     split = subparser.add_parser('split', help='''split single video. Ex.: "%(prog)s split -t 5m myvideo.mp4" ''')
     to264 = subparser.add_parser('to264', help='''convert file(s) to mp4/h264. Ex.: "%(prog)s to264 *.wmv" ''')
     togif = subparser.add_parser('togif', help='''convert file(s) to gif. Ex.: "%(prog)s togif -x 5 *.mp4" ''')
-    towebm = subparser.add_parser('towebm', help='''convert file(s) to webm/vp9. Ex.: "%(prog)s towebm *.mp4" ''')
     tomp3 = subparser.add_parser('tomp3', help='''extract audio to mp3. Ex.: "%(prog)s tomp3 -t 2 *.mp4" ''')
+    towebm = subparser.add_parser('towebm', help='''convert file(s) to webm/vp9. Ex.: "%(prog)s towebm *.mp4" ''')
     version = subparser.add_parser('version', help='''show version''')
 
     merge.add_argument('-f', type=str, required=True, metavar='1280x720[@30]', help='output video format')
@@ -448,31 +478,23 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    videotool = VideoTool()
+
     if args.command == 'version':
-        try:
-            out, err = subprocess.Popen(['ffmpeg', '-version'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True).communicate()
-            ffmpegver = '{}'.format(out.split('\n')[0].split(' ')[2])
-        except:
-            ffmpegver = 'ffmpeg not found (check PATH environment variable)'
-        try:
-            out, err = subprocess.Popen(['ffprobe', '-version'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True).communicate()
-            ffprobever = '{}'.format(out.split('\n')[0].split(' ')[2])
-        except:
-            ffprobever = 'ffprobe not found (check PATH environment variable)'
-        print('version: {}\nffmpeg: {}\nffprobe: {}'.format(ver, ffmpegver, ffprobever))
+        binsinfo = videotool.show_versions()
+        print('ffeasytool: {}\nffmpeg ({}): {}\nffprobe ({}): {}'.format(ver, binsinfo[0], binsinfo[1],binsinfo[2],binsinfo[3]))
         sys.exit()
 
     # correct method to parse filenames with wildcards:
     # wildcards will be converted to filenames by shell in linux,
     # but not in windows. So we set  "nargs='+'" in argparse argument and...
     # ... if we have a list of filenames (maybe converted from wildcards by shell):
-    if len(args.file) > 1:
+    if len(args.file) > 1 and args.command != 'version':
         files = sorted(args.file)
     # ... if argument is a one filename (or filename with wildcards in windows)
-    elif len(args.file) == 1:
+    elif len(args.file) == 1 and args.command != 'version':
         files = sorted(glob.glob(args.file[0]))
 
-    videotool = VideoTool()
 
     if args.command == 'resize':
         infile = files[0]
