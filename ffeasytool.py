@@ -29,6 +29,8 @@ class VideoTool:
             print("ffprobe executable is not found.")
         if binsfailed:
             print('You should install ffmpeg and ffprobe. Place binaries into PATH directory.')
+            if platform.system() == "Windows":
+                print('You can download ffmpeg.exe and ffprobe.exe from https://github.com/GyanD/codexffmpeg/releases/')
             sys.exit(1)
 
     # --------------------------------------------
@@ -43,6 +45,7 @@ class VideoTool:
             , '-pix_fmt', 'yuv420p'
             ]
 
+    # --------------------------------------------
     def show_versions(self):
         try:
             out, err = subprocess.Popen([self.bins['ffmpeg'], '-version'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True).communicate()
