@@ -20,13 +20,14 @@ class VideoTool:
         self.bins['ffprobe'] = which(ffprobe)
 
         # check bins
+        binsfailed = False
         if self.bins['ffmpeg'] is None:
             binsfailed = True
             print("ffmpeg not found in PATH directory.")
         if self.bins['ffprobe'] is None:
             binsfailed = True
             print("ffprobe not found in PATH directory.")
-        if binsfailed is not None:
+        if binsfailed:
             print('\nYou must install ffmpeg.')
             if platform.system() == "Windows":
                 print(  '\nFOR WINDOWS:\n'
