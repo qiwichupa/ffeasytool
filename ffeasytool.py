@@ -20,17 +20,20 @@ class VideoTool:
         self.bins['ffprobe'] = which(ffprobe)
 
         # check bins
-        binsfailed = False
         if self.bins['ffmpeg'] is None:
             binsfailed = True
-            print("ffmpeg executable is not found.")
+            print("ffmpeg not found in PATH directory.")
         if self.bins['ffprobe'] is None:
             binsfailed = True
-            print("ffprobe executable is not found.")
-        if binsfailed:
-            print('You should install ffmpeg and ffprobe. Place binaries into PATH directory.')
+            print("ffprobe not found in PATH directory.")
+        if binsfailed is not None:
+            print('\nYou must install ffmpeg.')
             if platform.system() == "Windows":
-                print('You can download ffmpeg.exe and ffprobe.exe from https://github.com/GyanD/codexffmpeg/releases/')
+                print(  '\nFOR WINDOWS:\n'
+                        'You can download ffmpeg from:\n'
+                        'https://github.com/GyanD/codexffmpeg/releases/\n'
+                        'Copy ffmpeg.exe and ffprobe.exe to one of this folders:\n'
+                        '{}'.format(os.environ['PATH']).replace(';',';\n'))
             sys.exit(1)
 
     # --------------------------------------------
@@ -47,16 +50,10 @@ class VideoTool:
 
     # --------------------------------------------
     def show_versions(self):
-        try:
-            out, err = subprocess.Popen([self.bins['ffmpeg'], '-version'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True).communicate()
-            ffmpegver = '{}'.format(out.split('\n')[0].split(' ')[2])
-        except:
-            ffmpegver = 'ffmpeg not found (check PATH environment variable)'
-        try:
-            out, err = subprocess.Popen([self.bins['ffprobe'], '-version'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True).communicate()
-            ffprobever = '{}'.format(out.split('\n')[0].split(' ')[2])
-        except:
-            ffprobever = 'ffprobe not found (check PATH environment variable)'
+        out, err = subprocess.Popen([self.bins['ffmpeg'], '-version'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True).communicate()
+        ffmpegver = '{}'.format(out.split('\n')[0].split(' ')[2])
+        out, err = subprocess.Popen([self.bins['ffprobe'], '-version'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True).communicate()
+        ffprobever = '{}'.format(out.split('\n')[0].split(' ')[2])
         return self.bins['ffmpeg'], ffmpegver, self.bins['ffprobe'], ffprobever
 
     # --------------------------------------------
@@ -165,8 +162,8 @@ class VideoTool:
             audiobps = audiobitrate * 1000
 
         # check if target size is smaller than audio size
-        audiosize =  duration * (audiobps/8) # bytes
-        if  targetsize <= ( audiosize * containerfactor ):
+        audiosize = duration * (audiobps/8) # bytes
+        if targetsize <= ( audiosize * containerfactor ):
             if sizein == 'B':
                 errsize = math.ceil(audiosize * containerfactor)
             elif sizein == 'Kb':
@@ -175,7 +172,8 @@ class VideoTool:
                 errsize = math.ceil(audiosize * containerfactor/1024 ** 2)
             elif sizein == 'Gb':
                 errsize = math.ceil(audiosize * containerfactor/1024 ** 3)
-            raise RuntimeError("TARGET SIZE IS TOO SMALL!\nAudio track size: ~{asize} {sizein} with {audiokbps} kbps. \nTry target size {errsize} {sizein}. Increase it if an encoding error appears.".format(asize=errsize-1, audiokbps=math.ceil(audiobps/1000), errsize=errsize, sizein=sizein))
+            print("TARGET SIZE IS TOO SMALL!\nAudio track size: ~{asize} {sizein} with {audiokbps} kbps. \nTry target size {errsize} {sizein}. Increase it if an encoding error appears.".format(asize=errsize-1, audiokbps=math.ceil(audiobps/1000), errsize=errsize, sizein=sizein))
+            sys.exit(1)
 
         # calculate bitrate
         videobps = ( targetsize * 8 )/( containerfactor * duration ) - math.floor(audiobps)
@@ -426,7 +424,7 @@ class VideoTool:
 
 
 if __name__ == '__main__':
-    ver = '1.5-rc3'
+    ver = '1.5'
     H264CRF = 22
     VP9CRF = 30
     LAMEQUAL = 4
@@ -481,11 +479,15 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    videotool = VideoTool()
-
+    # some fuckup with code: two 'videotool = VideoTool()' - here and later
+    # The VideoTool class checks for ffmpeg executables and
+    # calls sys.exit() if they are not found. So, to display the version of this script,
+    # if ffmpeg is not installed, an instance of the VideoTool class must be created AFTER printing the version.
     if args.command == 'version':
+        print('ffeasytool: {}'.format(ver))
+        videotool = VideoTool()
         binsinfo = videotool.show_versions()
-        print('ffeasytool: {}\nffmpeg ({}): {}\nffprobe ({}): {}'.format(ver, binsinfo[0], binsinfo[1],binsinfo[2],binsinfo[3]))
+        print('ffmpeg ({}): {}\nffprobe ({}): {}'.format(binsinfo[0], binsinfo[1],binsinfo[2],binsinfo[3]))
         sys.exit()
 
     # correct method to parse filenames with wildcards:
@@ -498,7 +500,7 @@ if __name__ == '__main__':
     elif len(args.file) == 1 and args.command != 'version':
         files = sorted(glob.glob(args.file[0]))
 
-
+    videotool = VideoTool() # this instance is created AFTER the "version" command (see comment before "version")
     if args.command == 'resize':
         infile = files[0]
         infilebasename = os.path.basename(infile)
