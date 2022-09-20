@@ -19,6 +19,9 @@ The main features are:
 #### resize (half-size)
 `ffeasytool.py resize -m 0.5 myvideo.mp4`
 
+#### compress file to 100 megabytes with audio bitrate 128 kbps
+`ffeasytool.py compress -s 100M -a 128 myvideo.mp4`
+
 #### cut from 1 min 5 sec to 2 min 53 sec
 `ffeasytool.py cut -a 01:05 -b 02:53 myvideo.mp4`
 
