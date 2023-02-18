@@ -17,9 +17,10 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: windows-latest
+          - os: windows-2019
             TARGET: windows
             CMD_BUILD: pyinstaller -F -c -n ffeasytool ffeasytool.py
+            OUT_FILE_NAME: ffeasytool
     steps:
     - name: Clone
       uses: actions/checkout@v3
@@ -37,6 +38,6 @@ jobs:
     - name: Upload
       uses: actions/upload-artifact@v3
       with:
-        name: ffeasytool_x64.exe
-        path: ffeasytool.exe
+        name: ${{ matrix.OUT_FILE_NAME}}_x64.exe
+        path: ./dist/${{ matrix.OUT_FILE_NAME}}.exe
         retention-days: 7
