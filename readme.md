@@ -30,3 +30,4 @@ The main features are:
 
 #### split file into chunks of 20 min
 `ffeasytool.py split -t 20m myvideo.mp4`
+
