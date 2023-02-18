@@ -37,6 +37,6 @@ jobs:
     - name: Upload
       uses: actions/upload-artifact@v3
       with:
-        name: feasytool.exe
-        path: os/windows/easytool.exe
+        name: ffeasytool_x64.exe
+        path: ffeasytool.exe
         retention-days: 7
