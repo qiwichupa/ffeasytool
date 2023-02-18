@@ -39,6 +39,7 @@ class VideoTool:
 
     # --------------------------------------------
     def _get_h264settings(self, quality):
+        '''returns common encoder settings'''
         return [
             '-c:v', 'libx264'
             , '-sn'
@@ -95,7 +96,7 @@ class VideoTool:
         subprocess.Popen(cmd).communicate()
 
     # --------------------------------------------
-    def compress_single_video(self, infile: str, targetsize: str, audiobitrate=None, containerfactor=1.048576, outfile='outfile.mp4'):
+    def compress_single_video(self, infile: str, targetsize: str, audiobitrate=None, containerfactor=10, outfile="outfile.mp4"):
         # platform check
         if platform.system() == "Linux":
             devnull = '/dev/null'
@@ -162,23 +163,28 @@ class VideoTool:
         else:
             audiobps = audiobitrate * 1000
 
+        mp4overhead = math.floor( containerfactor *  (1024**2/3600) * duration ) # in bytes. The basic overhead is 1Mb per hour (really a random value). Some multiplier (containerfactor) is needed for tuning.
         # check if target size is smaller than audio size
         audiosize = duration * (audiobps/8) # bytes
-        if targetsize <= ( audiosize * containerfactor ):
+        if targetsize <= ( audiosize + mp4overhead ):
             if sizein == 'B':
-                errsize = math.ceil(audiosize * containerfactor)
+                errsize = math.ceil( audiosize + mp4overhead )
             elif sizein == 'Kb':
-                errsize = math.ceil(audiosize * containerfactor/1024)
+                errsize = math.ceil( (audiosize + mp4overhead) / 1024 )
             elif sizein == 'Mb':
-                errsize = math.ceil(audiosize * containerfactor/1024 ** 2)
+                errsize = math.ceil(( audiosize + mp4overhead) / 1024**2 )
             elif sizein == 'Gb':
-                errsize = math.ceil(audiosize * containerfactor/1024 ** 3)
+                errsize = math.ceil( (audiosize + mp4overhead) / 1024**3 )
             print("TARGET SIZE IS TOO SMALL!\nAudio track size: ~{asize} {sizein} with {audiokbps} kbps. \nTry target size {errsize} {sizein}. Increase it if an encoding error appears.".format(asize=errsize-1, audiokbps=math.ceil(audiobps/1000), errsize=errsize, sizein=sizein))
             sys.exit(1)
 
         # calculate bitrate
-        videobps = ( targetsize * 8 )/( containerfactor * duration ) - math.floor(audiobps)
-
+        videobps = math.floor( ( (targetsize - mp4overhead) * 8 / duration ) - math.floor(audiobps) )
+        infotargetsize = targetsize / 1024 # Kb
+        infovideosize = (videobps / (8 * 1024) ) * duration # Kb
+        infomp4overhead = mp4overhead /  1024 # Kb
+        infoaudiosize = (audiobps / (8 * 1024)) * duration # Kb
+        print("Duration: {duration}\nTarget size: {targetsize} Kb\nVideo size: {videosize} Kb\nAudio size: {audiosize} Kb\nMP4 Overhead: {mp4overhead} Kb".format(duration=duration, targetsize=infotargetsize, videosize=infovideosize, audiosize=infoaudiosize, mp4overhead=infomp4overhead))
         ffmpeglogname = 'tmp-passlogfile-{}'.format(''.join(random.choices(string.ascii_uppercase + string.digits, k=6)))
         # pass 1
         cmd = [self.bins['ffmpeg']
@@ -425,7 +431,7 @@ class VideoTool:
 
 
 if __name__ == '__main__':
-    ver = '1.5'
+    ver = '1.5.1'
     H264CRF = 22
     VP9CRF = 30
     LAMEQUAL = 4
@@ -513,7 +519,7 @@ if __name__ == '__main__':
     elif args.command == 'compress':
         infile = files[0]
         infilebasename = os.path.basename(infile)
-        outfile = '{}_compressed.mp4'.format(os.path.splitext(infilebasename)[0])
+        outfile = '{}_compressed_{}.mp4'.format(os.path.splitext(infilebasename)[0], args.s)
         if args.a:
             videotool.compress_single_video(infile=infile, targetsize=args.s, audiobitrate=args.a, outfile=outfile)
         else:
