@@ -21,7 +21,7 @@ jobs:
             CMD_BUILD: pyinstaller -F -c -n ffeasytool ffeasytool.py
     steps:
     - name: Clone
-    - uses: actions/checkout@v3
+      uses: actions/checkout@v3
     
     - name: Set up Python 3.8
       uses: actions/setup-python@v2
