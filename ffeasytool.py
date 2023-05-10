@@ -49,6 +49,33 @@ class VideoTool:
             , '-force_key_frames', 'expr:gte(t,n_forced*18)'
             , '-pix_fmt', 'yuv420p'
             ]
+    
+    # --------------------------------------------
+    def _lead_to_divisibility_by_2(self, pxls, enlargement=True):
+        '''Function to lead video width/height to a divisible by 2. Necessary for encoding video with h264 codec.'''
+        if pxls % 2 != 0:
+            if enlargement:
+                pxls += 1
+            else:
+                pxls -= 1
+        return pxls
+
+    # --------------------------------------------
+    def _get_resolution(self, file):
+        '''Returns tuple  (width, height) as int'''
+        cmd = [self.bins['ffprobe']
+                , '-v'
+                , 'error'
+                , '-select_streams'
+                , 'v:0'
+                , '-show_entries'
+                , 'stream=width,height'
+                , '-of'
+                , 'csv=s=x:p=0'
+                , file]
+        out, err = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True).communicate()
+        width, height = out.split('x')
+        return( int(width),  int(height) )
 
     # --------------------------------------------
     def show_versions(self):
@@ -61,10 +88,8 @@ class VideoTool:
     # --------------------------------------------
     def avmerge(self, files, maxWidth=1920, maxHeight=1080, frameRate=30, quality=22, outfile='outfile.mp4'):
         frameRate = str(frameRate)
-        if int(maxWidth) % 2 != 0: maxWidth = int(maxWidth) + 1
-        if int(maxHeight) % 2 != 0: maxHeight = int(maxHeight) + 1
-        maxWidth = str(maxWidth)
-        maxHeight = str(maxHeight)
+        maxWidth = str(self._lead_to_divisibility_by_2(int(maxWidth)))
+        maxHeight = str(self._lead_to_divisibility_by_2(int(maxHeight)))
 
         if outfile in files: files.remove(outfile)
 
@@ -238,32 +263,16 @@ class VideoTool:
 
         if scale is not None:
             scale = float(scale)
-
-            # find current resolution
-            cmd = [self.bins['ffprobe']
-                , '-v'
-                , 'error'
-                , '-select_streams'
-                , 'v:0'
-                , '-show_entries'
-                , 'stream=width,height'
-                , '-of'
-                , 'csv=s=x:p=0'
-                , infile]
-            out, err = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True).communicate()
-            width, height = out.split('x')
-            width = int(width)
-            height = int(height)
-
+            width, height = self._get_resolution(infile)
             newwidth = int(width * scale)
             newheight = int(height * scale)
         elif resolution is not None:
             newwidth, newheight = resolution.split('x')
             newwidth = int(newwidth)
             newheight = int(newheight)
-
-        if newwidth % 2 != 0: newwidth += 1
-        if newheight % 2 != 0: newheight += 1
+        
+        newwidth = self._lead_to_divisibility_by_2(newwidth)
+        newheight = self._lead_to_divisibility_by_2(newheight)
 
         # convert resolution
         cmd = [
@@ -407,10 +416,14 @@ class VideoTool:
             print('"{}" is already h264, skipped.'.format(infile))
             return
 
+        inwidth, inheight = self._get_resolution(infile)
+        outwidth = self._lead_to_divisibility_by_2(inwidth)
+        outheight = self._lead_to_divisibility_by_2(inheight)
         cmd = [
             self.bins['ffmpeg']
             , '-i', infile
             ]
+        if inwidth != outwidth or inheight != outheight: cmd += ['-vf', 'scale={}:{}, setsar=1:1'.format(outwidth, outheight)]
         cmd += self._get_h264settings(quality)
         cmd += [outfile]
         subprocess.Popen(cmd).communicate()
@@ -431,7 +444,7 @@ class VideoTool:
 
 
 if __name__ == '__main__':
-    ver = '1.5.1'
+    ver = '1.5.2'
     H264CRF = 22
     VP9CRF = 30
     LAMEQUAL = 4
@@ -567,4 +580,3 @@ if __name__ == '__main__':
             fps = int(fps[0])
         width, height = resolution.split('x')
         videotool.avmerge(filestomerge, int(width), int(height), int(fps), quality=args.q, outfile='outfile_merged.mp4')
-
