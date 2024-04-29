@@ -49,6 +49,13 @@ class VideoTool:
             , '-force_key_frames', 'expr:gte(t,n_forced*18)'
             , '-pix_fmt', 'yuv420p'
             ]
+    # --------------------------------------------
+    
+    def _get_audiocodec(self, codec='libvorbis'):
+        '''returns common audio encoder settings'''
+        return [
+           '-c:a', codec
+            ]
     
     # --------------------------------------------
     def _lead_to_divisibility_by_2(self, pxls, enlargement=True):
@@ -59,7 +66,27 @@ class VideoTool:
             else:
                 pxls -= 1
         return pxls
-
+    
+    # --------------------------------------------
+    def _there_is_audio(self, file, audiotrack=None, wrongtrackexit=False):
+        ''' Checks if audio exists, returns cmd params with stream number. Returns False or calls sys.exit if no track exists. '''
+        cmd = [
+            self.bins['ffprobe']
+            , '-i', infile
+            , '-show_streams'
+            , '-select_streams', 'a:{}'.format(str(audiotrack - 1))
+            , '-loglevel', 'error'
+            ]
+        out, err = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True).communicate()
+        if len(out.strip()) > 1:
+            return([ '-map',  '0:a:{}'.format(str(audiotrack-1))])
+        else:
+            print("Audio track not found: #{}".format(str(audiotrack)))
+            if wrongtrackexit:
+                sys.exit(1)
+            else:
+                return(False)
+        
     # --------------------------------------------
     def _get_resolution(self, file):
         '''Returns tuple  (width, height) as int'''
@@ -121,7 +148,7 @@ class VideoTool:
         subprocess.Popen(cmd).communicate()
 
     # --------------------------------------------
-    def compress_single_video(self, infile: str, targetsize: str, audiobitrate=None, containerfactor=10, outfile="outfile.mp4"):
+    def compress_single_video(self, infile: str, targetsize: str, audiobitrate=None, audiotrack=None, containerfactor=10, outfile="outfile.mp4"):
         # platform check
         if platform.system() == "Linux":
             devnull = '/dev/null'
@@ -167,26 +194,34 @@ class VideoTool:
         out, err = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True).communicate()
         duration = float(out.strip())
 
-        # get audio rate in bits per seconds
-        if audiobitrate is None:
-            cmd = [self.bins['ffprobe']
-                , '-v'
-                , 'error'
-                , '-select_streams'
-                , 'a:0'
-                , '-show_entries'
-                , 'stream=bit_rate'
-                , '-of'
-                , 'csv=p=0'
-                , infile]
-            out, err = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True).communicate()
-            try:
-                audiobps = float(out.strip())
-            except:
-                # sometimes ffprobe return N/A
-                audiobps = 128 * 1000
-        else:
-            audiobps = audiobitrate * 1000
+        # check if audio exists
+        audiocodeccmd = []
+        audiotrackcmd = []
+        audiobps = 0
+        if self._there_is_audio(infile, audiotrack=audiotrack):
+            audiocodeccmd = self._get_audiocodec()
+            audiotrackcmd = self._there_is_audio(infile, audiotrack=audiotrack)
+            
+            # get audio rate in bits per seconds
+            if audiobitrate is None:
+                cmd = [self.bins['ffprobe']
+                    , '-v'
+                    , 'error'
+                    , '-select_streams'
+                    , 'a:{}'.format(str(audiotrack-1))
+                    , '-show_entries'
+                    , 'stream=bit_rate'
+                    , '-of'
+                    , 'csv=p=0'
+                    , infile]
+                out, err = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True).communicate()
+                try:
+                    audiobps = float(out.strip())
+                except:
+                    # sometimes ffprobe return N/A
+                    audiobps = 128 * 1000
+            else:
+                audiobps = audiobitrate * 1000
 
         mp4overhead = math.floor( containerfactor *  (1024**2/3600) * duration ) # in bytes. The basic overhead is 1Mb per hour (really a random value). Some multiplier (containerfactor) is needed for tuning.
         # check if target size is smaller than audio size
@@ -215,7 +250,10 @@ class VideoTool:
         cmd = [self.bins['ffmpeg']
              , '-y'
              , '-i'
-             , infile
+             , infile]
+        cmd += audiotrackcmd
+        cmd += [
+               '-map', '0:v:0'
              , '-c:v'
              , 'libx264'
              , '-b:v'
@@ -232,7 +270,11 @@ class VideoTool:
         cmd = [self.bins['ffmpeg']
             , '-y' 
             , '-i'
-             , infile
+             , infile]
+        cmd += audiotrackcmd
+        cmd += audiocodeccmd
+        cmd += [
+              '-map', '0:v:0'
              , '-c:v'
              , 'libx264'
              , '-b:v'
@@ -241,8 +283,6 @@ class VideoTool:
              , '2'
              , '-passlogfile'
              , ffmpeglogname
-             , '-c:a'
-             , 'aac'
              , '-b:a'
              , '{}k'.format(str(math.floor(audiobps/1000)))
              , outfile]
@@ -258,7 +298,7 @@ class VideoTool:
             pass
 
     # --------------------------------------------
-    def resize_single_video(self, infile: str, scale=None, resolution=None, quality=22, outfile='outfile.mp4'):
+    def resize_single_video(self, infile: str, scale=None, audiotrack=None, resolution=None, quality=22, outfile='outfile.mp4'):
         if scale is None and resolution is None: return
 
         if scale is not None:
@@ -278,34 +318,62 @@ class VideoTool:
         cmd = [
             self.bins['ffmpeg']
             , '-i', infile
+            , '-map', '0:v:0'
             , '-vf', 'scale={}:{}, setsar=1:1'.format(newwidth, newheight)
             ]
+        
+        # check if audio exists
+        audiocodeccmd = []
+        audiotrackcmd = []
+        if self._there_is_audio(infile, audiotrack=audiotrack):
+            audiocodeccmd = self._get_audiocodec()
+            audiotrackcmd = self._there_is_audio(infile, audiotrack=audiotrack)
+        
         cmd += self._get_h264settings(quality)
+        cmd += audiotrackcmd
+        cmd += audiocodeccmd
         cmd += [outfile]
         subprocess.Popen(cmd).communicate()
 
     # --------------------------------------------
-    def cut_single_video(self, infile: str, startpoint='-1', endpoint='-1', quality=22, outfile='outfile.mp4'):
+    def cut_single_video(self, infile: str, startpoint='-1', endpoint='-1', audiotrack=None, quality=22, outfile='outfile.mp4'):
         if startpoint == '-1' and endpoint == '-1': return
 
         cmd = [
             self.bins['ffmpeg']
             , '-i', infile
+            , '-map', '0:v:0'
             ]
         if startpoint != '-1': cmd += ['-ss', startpoint]
         if endpoint != '-1':   cmd += ['-to', endpoint]
+        
+        # check if audio exists
+        audiocodeccmd = []
+        audiotrackcmd = []
+        if self._there_is_audio(infile, audiotrack=audiotrack):
+            audiocodeccmd = self._get_audiocodec()
+            audiotrackcmd = self._there_is_audio(infile, audiotrack=audiotrack)
 
         cmd += self._get_h264settings(quality)
+        cmd += audiotrackcmd
+        cmd += audiocodeccmd
         cmd += [outfile]
         subprocess.Popen(cmd).communicate()
 
     # --------------------------------------------
-    def split_video(self, infile, time='0', chunks=0, quality=22) -> None:
+    def split_video(self, infile, time='0', chunks=0, quality=22, audiotrack=None) -> None:
         '''time in seconds (also in 1m/1h format)'''
         if chunks == 0 and time == '0': return
 
         infilebasename = os.path.basename(infile)
         outfile = '{}.split_%03d.mp4'.format(os.path.splitext(infilebasename)[0])
+        
+        # check if audio exists
+        audiocodeccmd = []
+        audiotrackcmd = []
+        if self._there_is_audio(infile, audiotrack=audiotrack):
+            audiocodeccmd = self._get_audiocodec()
+            audiotrackcmd = self._there_is_audio(infile, audiotrack=audiotrack)
 
         cmd = [
             self.bins['ffmpeg']
@@ -331,11 +399,13 @@ class VideoTool:
             cmd += [
                 '-f', 'segment'
                 , '-reset_timestamps', '1'
-                , '-map', '0'
+                , '-map', '0:v:0'
                 , '-segment_time', str(time)
                 ]
 
         cmd += self._get_h264settings(quality)
+        cmd += audiotrackcmd
+        cmd += audiocodeccmd
         cmd += ['-sc_threshold', '0']
         cmd += [outfile]
         subprocess.Popen(cmd).communicate()
@@ -354,7 +424,7 @@ class VideoTool:
         subprocess.Popen(cmd).communicate()
 
     # --------------------------------------------
-    def convert_to_webm(self, infile, quality=31, outfile='outfile.webm'):
+    def convert_to_webm(self, infile, quality=31, audiotrack=None, outfile='outfile.webm'):
 
         # check video codec
         cmdpv = [
@@ -372,22 +442,19 @@ class VideoTool:
             return
 
         # check if audio exists
-        cmdpa = [
-            self.bins['ffprobe']
-            , '-i', infile
-            , '-show_streams'
-            , '-select_streams', 'a'
-            , '-loglevel', 'error'
-            ]
-        out, err = subprocess.Popen(cmdpa, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True).communicate()
-        audioparams = []
-        if len(out.strip()) > 1:  audioparams = ['-c:a', 'libvorbis']
+        audiocodeccmd = []
+        audiotrackcmd = []
+        if self._there_is_audio(infile, audiotrack=audiotrack):
+            audiocodeccmd = self._get_audiocodec()
+            audiotrackcmd = self._there_is_audio(infile, audiotrack=audiotrack)
 
         cmd = [
             self.bins['ffmpeg']
             , '-i', infile
+            , '-map', '0:v:0'
             ]
-        cmd += audioparams
+        cmd += audiotrackcmd
+        cmd += audiocodeccmd
         cmd += [
             '-c:v', 'libvpx-vp9'
             , '-row-mt', '1'
@@ -399,7 +466,7 @@ class VideoTool:
         subprocess.Popen(cmd).communicate()
 
     # --------------------------------------------
-    def convert_to_x264(self, infile, quality=22, outfile='outfile.mp4'):
+    def convert_to_x264(self, infile, quality=22, audiotrack=None, outfile='outfile.mp4'):
 
         # check video codec
         cmd = [
@@ -419,24 +486,43 @@ class VideoTool:
         inwidth, inheight = self._get_resolution(infile)
         outwidth = self._lead_to_divisibility_by_2(inwidth)
         outheight = self._lead_to_divisibility_by_2(inheight)
+        
+        # check if audio exists
+        audiocodeccmd = []
+        audiotrackcmd = []
+        if self._there_is_audio(infile, audiotrack=audiotrack):
+            audiocodeccmd = self._get_audiocodec()
+            audiotrackcmd = self._there_is_audio(infile, audiotrack=audiotrack)
+        
         cmd = [
             self.bins['ffmpeg']
             , '-i', infile
+            , '-map', '0:v:0'
             ]
         if inwidth != outwidth or inheight != outheight: cmd += ['-vf', 'scale={}:{}, setsar=1:1'.format(outwidth, outheight)]
         cmd += self._get_h264settings(quality)
+        cmd += audiotrackcmd
+        cmd += audiocodeccmd
         cmd += [outfile]
         subprocess.Popen(cmd).communicate()
 
     # --------------------------------------------
-    def convert_to_mp3(self, infile, track=0, quality=4, outfile='outfile.mp3'):
+    def convert_to_mp3(self, infile, audiotrack=None, quality=4, outfile='outfile.mp3'):
+       
+       # check if audio exists
+        audiocodeccmd = []
+        audiotrackcmd = []
+        if self._there_is_audio(infile, audiotrack=audiotrack, wrongtrackexit=True):
+            audiocodeccmd = self._get_audiocodec(codec='libmp3lame')
+            audiotrackcmd = self._there_is_audio(infile, audiotrack=audiotrack)
+        
         cmd = [
             self.bins['ffmpeg']
             , '-i', infile]
+        cmd += audiotrackcmd
+        cmd += audiocodeccmd
         cmd += [
-            '-map', '0:a:{}'.format(track)
-            , '-c:a', 'libmp3lame'
-            , '-q:a', str(quality)
+              '-q:a', str(quality)
             , '-ar', '48000'
             ]
         cmd += [outfile]
@@ -444,7 +530,7 @@ class VideoTool:
 
 
 if __name__ == '__main__':
-    ver = '1.5.2'
+    ver = '1.6.0-rc1'
     H264CRF = 22
     VP9CRF = 30
     LAMEQUAL = 4
@@ -467,33 +553,39 @@ if __name__ == '__main__':
 
     compress.add_argument('-s', type=str,required=True, metavar='2M', help='target size (in bytes by default). Ex.: 1024, 512K, 2M, 1G')
     compress.add_argument('-a', type=int, metavar='128', help='audio bitrate in kbps. By default it is taken from the source file.')
+    compress.add_argument('-n', type=int, default=1, metavar='1', help='audio track (default: 1)')
     compress.add_argument('file', nargs='+', help='filename(s) (space-separated) or name with wildcards')
 
     resizegroup = resize.add_mutually_exclusive_group(required=True)
     resizegroup.add_argument('-m', type=float, default=1, metavar='1.5', help='multiplier. Ex.: 0.5, 2, 3.4, etc.')
     resizegroup.add_argument('-r', type=str, default=None, metavar='1280x720', help='resolution')
     resize.add_argument('-q', type=int, default=H264CRF, metavar='{}'.format(H264CRF), help='quality from 51 (worst), to 0 (best). Recommended: 28-17. Default: {}'.format(H264CRF))
+    resize.add_argument('-n', type=int, default=1, metavar='1', help='audio track (default: 1)')
     resize.add_argument('file', nargs=1, help='filename')
 
     cut.add_argument('-a', type=str, default='-1', metavar='[HH:][MM:]SS[.mmm]', help='start point. Ex.: 50:05.600 (50 min, 5 sec, 600 ms)')
     cut.add_argument('-b', type=str, default='-1', metavar='[HH:][MM:]SS[.mmm]', help='end point. Ex.: 01:05:00 (1 hour, 5 min)')
     cut.add_argument('-q', type=int, default=H264CRF, metavar='{}'.format(H264CRF), help='quality from 51 (worst), to 0 (best). Recommended: 28-17. Default: {}'.format(H264CRF))
+    cut.add_argument('-n', type=int, default=1, metavar='1', help='audio track (default: 1)')
     cut.add_argument('file', nargs=1, help='filename')
 
     split.add_argument('-t', type=str, required=True, metavar='20m', help='chunks length (in sec by default). Ex.: 15, 2m, 1h')
     split.add_argument('-q', type=int, default=H264CRF, metavar='{}'.format(H264CRF), help='quality from 51 (worst), to 0 (best). Recommended: 28-17. Default: {}'.format(H264CRF))
+    split.add_argument('-n', type=int, default=1, metavar='1', help='audio track (default: 1)')
     split.add_argument('file', nargs=1, help='filename')
 
     togif.add_argument('-x', type=int, default=10, metavar='10', help='framerate for gif (default: 10)')
     togif.add_argument('file', nargs='+', help='filename(s) (space-separated) or name with wildcards')
 
     to264.add_argument('-q', type=int, default=H264CRF, metavar='{}'.format(H264CRF), help='quality from 51 (worst), to 0 (best). Recommended: 28-17. Default: {}'.format(H264CRF))
+    to264.add_argument('-n', type=int, default=1, metavar='1', help='audio track (default: 1)')
     to264.add_argument('file', nargs='+', help='filename(s) (space-separated) or name with wildcards')
 
     towebm.add_argument('-q', type=int, default=VP9CRF, metavar='{}'.format(VP9CRF), help='quality from 63 (worst), to 0 (best). Recommended: 35-15. Default: {}'.format(VP9CRF))
+    towebm.add_argument('-n', type=int, default=1, metavar='1', help='audio track (default: 1)')
     towebm.add_argument('file', nargs='+', help='filename(s) (space-separated) or name with wildcards')
 
-    tomp3.add_argument('-t', type=int, default=1, metavar='1', help='track number (default: 1)')
+    tomp3.add_argument('-n', type=int, default=1, metavar='1', help='audio track (default: 1)')
     tomp3.add_argument('-q', type=int, default=LAMEQUAL, metavar='{}'.format(LAMEQUAL), help='quality from 9 (worst), to 0 (best).  Default: {}'.format(LAMEQUAL))
     tomp3.add_argument('file', nargs='+', help='filename(s) (space-separated) or name with wildcards.')
 
@@ -526,21 +618,21 @@ if __name__ == '__main__':
         infilebasename = os.path.basename(infile)
         outfile = '{}_resized.mp4'.format(os.path.splitext(infilebasename)[0])
         if args.m != 1:
-            videotool.resize_single_video(infile=infile, scale=args.m, quality=args.q, outfile=outfile)
+            videotool.resize_single_video(infile=infile, scale=args.m, quality=args.q, audiotrack=args.n, outfile=outfile)
         elif args.r:
-            videotool.resize_single_video(infile=infile, resolution=args.r, quality=args.q, outfile=outfile)
+            videotool.resize_single_video(infile=infile, resolution=args.r, quality=args.q, audiotrack=args.n, outfile=outfile)
     elif args.command == 'compress':
         infile = files[0]
         infilebasename = os.path.basename(infile)
         outfile = '{}_compressed_{}.mp4'.format(os.path.splitext(infilebasename)[0], args.s)
         if args.a:
-            videotool.compress_single_video(infile=infile, targetsize=args.s, audiobitrate=args.a, outfile=outfile)
+            videotool.compress_single_video(infile=infile, targetsize=args.s, audiobitrate=args.a, audiotrack=args.n, outfile=outfile)
         else:
-            videotool.compress_single_video(infile=infile, targetsize=args.s, outfile=outfile)
+            videotool.compress_single_video(infile=infile, targetsize=args.s, audiotrack=args.n, outfile=outfile)
     elif args.command == 'split':
         infile = files[0]
         infilebasename = os.path.basename(infile)
-        videotool.split_video(infile=infile, time=args.t, quality=args.q)
+        videotool.split_video(infile=infile, time=args.t, quality=args.q, audiotrack=args.n)
     elif args.command == 'togif':
         for infile in files:
             infilebasename = os.path.basename(infile)
@@ -551,12 +643,12 @@ if __name__ == '__main__':
         for infile in files:
             infilebasename = os.path.basename(infile)
             outfile = '{}.mp4'.format(os.path.splitext(infilebasename)[0])
-            videotool.convert_to_x264(infile=infile, quality=args.q, outfile=outfile)
+            videotool.convert_to_x264(infile=infile, quality=args.q, audiotrack=args.n, outfile=outfile)
     elif args.command == 'towebm':
         for infile in files:
             infilebasename = os.path.basename(infile)
             outfile = '{}.webm'.format(os.path.splitext(infilebasename)[0])
-            videotool.convert_to_webm(infile=infile, quality=args.q, outfile=outfile)
+            videotool.convert_to_webm(infile=infile, quality=args.q, audiotrack=args.n, outfile=outfile)
     elif args.command == 'cut':
         infile = files[0]
         infilebasename = os.path.basename(infile)
@@ -564,13 +656,12 @@ if __name__ == '__main__':
         if args.a == -1 and args.b == -1:
             print('use -a and(or) -b')
         else:
-            videotool.cut_single_video(infile=infile, startpoint=args.a, endpoint=args.b, quality=args.q, outfile=outfile)
+            videotool.cut_single_video(infile=infile, startpoint=args.a, endpoint=args.b, quality=args.q, audiotrack=args.n, outfile=outfile)
     elif args.command == 'tomp3':
-        tracknum = args.t - 1
         for infile in files:
             infilebasename = os.path.basename(infile)
             outfile = '{}.mp3'.format(os.path.splitext(infilebasename)[0])
-            videotool.convert_to_mp3(infile=infile, track=tracknum, quality=args.q, outfile=outfile)
+            videotool.convert_to_mp3(infile=infile, audiotrack=args.n, quality=args.q, outfile=outfile)
     elif args.command == 'merge':
         filestomerge = files
         resolution, *fps = args.f.split('@')
